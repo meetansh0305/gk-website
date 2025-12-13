@@ -9,6 +9,8 @@ import {
   markProductSold,
   getProductHistory,
 } from "../lib/stockApi";
+
+import { supabase } from "../lib/supabaseClient";
 /**
  * Corrected StockManagement.tsx
  * - Uses id / product_name / category_name / subcategory_name / current_location_name
@@ -49,11 +51,27 @@ export default function StockManagement() {
   const [imageModal, setImageModal] = useState<string | null>(null);
   const [moveModalItem, setMoveModalItem] = useState<any | null>(null);
   const [moveModalTarget, setMoveModalTarget] = useState<number | "">("");
+  const [sellModalItem, setSellModalItem] = useState<any | null>(null);
+  const [customerList, setCustomerList] = useState<any[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | "">("");
+  const [newCustName, setNewCustName] = useState("");
+  const [newCustPhone, setNewCustPhone] = useState("");
+  const [newCustCity, setNewCustCity] = useState("");
+  const [newCustState, setNewCustState] = useState("");
 
 
+  async function loadCustomers() {
+    const { data } = await supabase
+     .from("profiles")
+     .select("id, full_name, phone, city, state")
+     .order("full_name", { ascending: true });
+
+    setCustomerList(data ?? []);
+  }
 
   useEffect(() => {
     loadInitial();
+    loadCustomers();
   }, []);
 
   function handleMoveSingle(item: any) {
@@ -67,21 +85,47 @@ export default function StockManagement() {
   }
 
   async function refreshItems(locId: number | null = selectedLocation) {
-    if (!locId) return;
     setLoading(true);
-
-    const filters: any = { location_id: locId };
+  
+    const filters: any = {};
+  
+    // 🔥 If showing sold items → DO NOT apply location filter
+    if (filterSold !== "sold") {
+      if (locId) {
+        filters.location_id = locId;
+      }
+    }
+  
     if (filterCategory) filters.category_id = filterCategory;
     if (filterSub) filters.subcategory_id = filterSub;
     if (filterWeightRange) filters.weight_range = filterWeightRange;
     if (filterShowOnline) filters.show_on_website = filterShowOnline === "true";
-    if (filterSold) filters.sold = filterSold === "sold";
+  
+  
+    // 🔥 Always apply sold filter cleanly
+    if (filterSold === "sold") {
+      filters.sold = true;
+    } else if (filterSold === "unsold") {
+      filters.sold = false;
+    }
+    console.log("🔍 Filters being sent:", filters);
+    console.log("🔍 filterSold value:", filterSold);
+    console.log("🔍 locId value:", locId);
+    
+  
+    const { data, error } = await getFilteredItems(filters);
+    console.log("🔍 Items returned:", data?.length || 0);
+    console.log("🔍 First item sold status:", data?.[0]?.sold);
 
-    const { data } = await getFilteredItems(filters);
+    if (error) {
+      console.error("❌ Error fetching items:", error);
+    }    
+
     setItems(data ?? []);
     setSelectedIds([]);
     setLoading(false);
   }
+  
 
   async function loadInitial() {
   const { data: locs } = await getLocationsSummary();
@@ -141,13 +185,24 @@ export default function StockManagement() {
     if (selectedIds.length === 0) return alert("Select items to mark sold");
     if (!confirm(`Mark ${selectedIds.length} items as sold?`)) return;
     setProcessing(true);
+    
+    let successCount = 0;
     for (const id of selectedIds) {
       const it = items.find((i: any) => i.id === id);
       if (!it) continue;
-      await markProductSold(id, it.current_location_id, "admin", "sold via admin bulk");
+      const result = await markProductSold(id, it.current_location_id, "admin", "sold via admin bulk");
+      if (!result.error) successCount++;
     }
-    await refreshItems();
+    
+    // After marking as sold, switch to "sold" filter so user can see the items
+    setFilterSold("sold");
+    setSelectedLocation(null); // Exit location view (sold items have no location)
+    
+    // Refresh items with the new filter
+    await refreshItems(null);
     setProcessing(false);
+    
+    alert(`✅ ${successCount} item(s) marked as sold! Viewing sold items now.`);
   }
 
   async function openHistory(itemId: number) {
@@ -264,8 +319,16 @@ export default function StockManagement() {
                 <option value="false">Hidden</option>
               </select>
 
-              <select className="input" value={filterSold} onChange={(e) => setFilterSold(e.target.value as any)}>
-                <option value="">Sold: All</option>
+              <select className="input" value={filterSold} onChange={(e) => {
+                const val = e.target.value as any;
+                setFilterSold(val);
+
+                if (val === "sold") {
+                  setSelectedLocation(null);   // 🚀 EXIT LOCATION VIEW
+                  refreshItems(null);
+                }
+              }}
+            >
                 <option value="unsold">Unsold</option>
                 <option value="sold">Sold</option>
               </select>
@@ -310,6 +373,7 @@ export default function StockManagement() {
                     <th>Subcategory</th>
                     <th>Weight (g)</th>
                     <th>Location</th>
+                    <th>Sold</th>
                     <th>Show online</th>
                     <th>Actions</th>
                   </tr>
@@ -346,8 +410,8 @@ export default function StockManagement() {
                       </td>
                       <td>{it.current_location_name ?? "-"}
                       </td>
-                      <td><input type="checkbox" checked={!!it.show_on_website} onChange={() => handleToggleShow(it)} /></td>
                       <td>{it.sold ? `Sold${it.sold_at ? " (" + it.sold_at.split("T")[0] + ")" : ""}` : "Unsold"}</td>
+                      <td><input type="checkbox" checked={!!it.show_on_website} onChange={() => handleToggleShow(it)} /></td>
                       <td>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button className="btn" onClick={() => handleMoveSingle(it)}>
@@ -355,22 +419,15 @@ export default function StockManagement() {
 
                           </button>
                           <button
-                          className="btn"
-                          onClick={async () => {
-                            if (confirm("Mark sold?")) {
-                              await markProductSold(
-                                it.id,
-                                it.current_location_id,
-                                "admin",
-                                "sold via admin"
-                              );
-                              await refreshItems();
-                            }
-                          }}
-                        >
-                          Sold
-                        </button>
-
+                            className="btn"
+                            onClick={() => {
+                              setSellModalItem(it);
+                              setSelectedCustomerId("");
+                              loadCustomers(); 
+                            }}
+                          >
+                           Sold
+                           </button>
                         <button className="btn ghost" onClick={() => openHistory(it.id)}>
                           History
                         </button>
@@ -471,13 +528,25 @@ export default function StockManagement() {
                             className="btn"
                             onClick={async () => {
                               if (confirm("Mark sold?")) {
-                                await markProductSold(
+                                const result = await markProductSold(
                                   it.id,
                                   it.current_location_id,
                                   "admin",
                                   "sold via admin"
                                 );
-                                await refreshItems();
+
+                                if (result.error) {
+                                  alert("Error marking as sold: " + result.error.message);
+                                  return;
+                                }
+                                 // After marking as sold, switch to "sold" filter so user can see the item
+                                 setFilterSold("sold");
+                                setSelectedLocation(null); 
+                                // Exit location view (sold items have no location)
+      
+                                // Refresh items with the new filter
+                                await refreshItems(null);
+                                alert("✅ Item marked as sold! Viewing sold items now.");
                               }
                             }}
                           >
@@ -628,9 +697,128 @@ export default function StockManagement() {
           </div>
         </div>
       )}
-    </div>  
-  );
-}
 
+      {/* Sell Modal */}
+      {sellModalItem && (
+        <div className="modal-overlay" onClick={() => setSellModalItem(null)}>
+         <div
+          className="modal-body"
+           style={{ width: 420 }}
+           onClick={(e) => e.stopPropagation()}
+          >
+           <h3>Sell Item #{sellModalItem.id}</h3>  
+          {/* Customer Dropdown */}
+          <div style={{ marginTop: 12 }}>
+            <label>Customer:</label>
+            <select
+              className="input"
+              value={selectedCustomerId}
+              onChange={(e) => setSelectedCustomerId(e.target.value)}
+              style={{ width: "100%", marginTop: 6 }}
+            >
+              <option value="">Select customer</option>
+              {customerList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.full_name} — {c.phone}
+                </option>
+              ))}
+              <option value="__new">➕ Add new customer</option>
+            </select>
+          </div>
+           {/* Add new customer form */}
+
+           {selectedCustomerId === "__new" && (
+            <div style={{ marginTop: 16 }}>
+              <label>Full Name</label>
+              <input className="input" value={newCustName} onChange={(e) => setNewCustName(e.target.value)} />
+              <label style={{ marginTop: 10 }}>Phone</label>
+              <input className="input" value={newCustPhone} onChange={(e) => setNewCustPhone(e.target.value)} />
+              <label style={{ marginTop: 10 }}>City</label>
+              <input className="input" value={newCustCity} onChange={(e) => setNewCustCity(e.target.value)} />
+              <label style={{ marginTop: 10 }}>State</label>
+              <input className="input" value={newCustState} onChange={(e) => setNewCustState(e.target.value)} />
+
+              <button
+                className ="btn"
+                style={{ marginTop: 12 }}
+                onClick={async () => {
+                  if (!newCustName || !newCustPhone) {
+                    alert("Name and phone are required");
+                    return;
+                  }
+                          const { data, error } = await supabase
+                .from("profiles")
+                .insert({
+                  id: crypto.randomUUID(),
+                  full_name: newCustName,
+                  phone: newCustPhone,
+                  city: newCustCity,
+                  state: newCustState,
+                })
+                .select()
+                .single();
+
+              if (error) {
+                alert("Failed to add customer");
+                return;
+              }
+
+              setSelectedCustomerId(data.id);
+              setNewCustName(data.full_name);
+              loadCustomers();
+              alert("Customer added!");
+            }}
+          >
+            Save Customer
+          </button>
+        </div>
+      )}
+
+      {/* ACTION BUTTONS */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20, gap: 10 }}>
+        <button className="btn ghost" onClick={() => setSellModalItem(null)}>Cancel</button>
+
+        <button
+  className="btn"
+  onClick={async () => {
+    if (!selectedCustomerId || selectedCustomerId === "__new") {
+      alert("Select or create a customer first");
+      return;
+    }
+
+    const result = await markProductSold(
+      sellModalItem.id,
+      sellModalItem.current_location_id,
+      "admin",
+      "sold via admin",
+      selectedCustomerId !== "__new" ? selectedCustomerId : null,
+      selectedCustomerId === "__new" ? newCustName : null
+    );
+  
+    if (result.error) {
+      alert("Error marking as sold: " + result.error.message);
+      return;
+    }
+
+    // After marking as sold, switch to "sold" filter so user can see the item
+    setFilterSold("sold");
+    setSelectedLocation(null); // Exit location view (sold items have no location)
+    
+    // Refresh items with the new filter
+    await refreshItems(null);
+    
+    alert("✅ Item marked as sold! Viewing sold items now.");
+    setSellModalItem(null)
+          }}
+        >
+          Confirm Sell
+        </button>
+      </div>
+    </div>
+  </div>
+      )}
+  </div>
+ );
+}
 
    

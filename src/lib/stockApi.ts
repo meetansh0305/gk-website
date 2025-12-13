@@ -41,64 +41,80 @@ export async function getFilteredItems(filters: any) {
     .from("product_items")
     .select(
       `
+      id,
+      product_id,
+      weight,
+      image_url,
+      show_on_website,
+      sold,
+      sold_at,
+      current_location_id,
+
+      products:product_id (
         id,
-        product_id,
-        weight,
-        image_url,
-        show_on_website,
-        sold,
-        sold_at,
-        current_location_id,
+        name,
+        category_id,
+        subcategory_id,
+        category:category_id ( id, name ),
+        subcategory:subcategory_id ( id, name )
+      ),
 
-        products:product_id!inner (
-          id,
-          name,
-          category_id,
-          subcategory_id,
-          category:category_id ( id, name ),
-          subcategory:subcategory_id ( id, name )
-        ),
-
-        current_location:current_location_id (
-          id,
-          name
-        )
-      `
+      current_location:current_location_id (
+        id,
+        name
+      )
+    `
     )
     .order("id", { ascending: false });
 
   // ------- FILTERS ----------
-  if (filters.location_id) {
+  
+  // 🔥 SOLD FILTER - Apply FIRST before other filters
+  if (filters.sold !== undefined) {
+    console.log("🔍 Applying sold filter:", filters.sold);
+    query = query.eq("sold", filters.sold);
+  }
+
+  // Location filter - only apply if location_id is provided AND we're not showing sold items
+  if (filters.location_id !== undefined && filters.location_id !== null && filters.sold !== true) {
+    console.log("🔍 Applying location filter:", filters.location_id);
     query = query.eq("current_location_id", filters.location_id);
   }
 
+  // Category filter - use inner join syntax for better performance
   if (filters.category_id) {
     query = query.eq("products.category_id", filters.category_id);
   }
 
+  // Subcategory filter
   if (filters.subcategory_id) {
     query = query.eq("products.subcategory_id", filters.subcategory_id);
   }
 
+  // Weight range filter
   if (filters.weight_range) {
     const [min, max] = filters.weight_range.split("-").map(Number);
     query = query.gte("weight", min).lte("weight", max);
   }
 
+  // Show on website filter
   if (filters.show_on_website !== undefined) {
     query = query.eq("show_on_website", filters.show_on_website);
-  }
-
-  if (filters.sold !== undefined) {
-    query = query.eq("sold", filters.sold);
   }
 
   // ------ RUN QUERY -------
   const { data, error } = await query;
 
   if (error) {
-    console.error("Supabase error:", error);
+    console.error("❌ Supabase error:", error);
+    console.error("❌ Error details:", JSON.stringify(error, null, 2));
     return { data: [], error };
+  }
+
+  console.log("🔍 Query successful, returned", data?.length || 0, "items");
+  if (data && data.length > 0) {
+    console.log("🔍 First item sold status:", data[0].sold);
+    console.log("🔍 Sample item:", { id: data[0].id, sold: data[0].sold, location: data[0].current_location_id });
   }
 
   // ------ CLEAN DATA -------
@@ -142,23 +158,25 @@ export async function toggleShowOnWebsite(id: number, show: boolean) {
 export async function moveProductItem(
   item_id: number,
   from_loc: number | null,
-  to_loc: number | null,
+  to_loc: number,
   performed_by: string,
   remarks: string
 ) {
-  const { error: insertErr } = await supabase
+  // 1) Insert movement row
+  const { error: movementErr } = await supabase
     .from("product_movements")
     .insert({
       product_item_id: item_id,
       from_location_id: from_loc,
       to_location_id: to_loc,
-      movement_type: 'TRANSFER',
+      movement_type: "MOVE",
       performed_by,
       remarks,
     });
 
-  if (insertErr) return { error: insertErr };
+  if (movementErr) return { error: movementErr };
 
+  // 2) Update current location on the item
   const { error: updateErr } = await supabase
     .from("product_items")
     .update({ current_location_id: to_loc })
@@ -168,36 +186,158 @@ export async function moveProductItem(
 }
 
 /* --------------------------------------------
-   7) MARK AS SOLD
+   7) MARK PRODUCT AS SOLD (final clean version)
 ---------------------------------------------*/
 export async function markProductSold(
   item_id: number,
   from_loc: number | null,
   performed_by: string,
-  remarks: string
+  remarks: string,
+  sold_to_user: string | null = null,
+  sold_to_name: string | null = null
 ) {
-  const { error } = await supabase.from("product_movements").insert({
-    product_item_id: item_id,
-    from_location_id: from_loc,
-    to_location_id: null,
-    movement_type: 'SALE',
-    performed_by,
-    remarks,
-  });
+  // First, get the product_id and weight from the item
+  const { data: itemData, error: itemError } = await supabase
+    .from("product_items")
+    .select("product_id, weight")
+    .eq("id", item_id)
+    .single();
 
-  if (error) return { error };
+  if (itemError || !itemData) {
+    console.error("Error fetching item data:", itemError);
+    return { error: itemError };
+  }
 
+  // 1) Insert sale movement
+  const { error: movementErr } = await supabase
+    .from("product_movements")
+    .insert({
+      product_item_id: item_id,
+      from_location_id: from_loc,
+      to_location_id: null,
+      movement_type: "SALE",
+      performed_by,
+      remarks,
+    });
+  
+  if (movementErr) {
+    console.error("Movement error:", movementErr);
+    return { error: movementErr };
+  }
+
+  // 2) Update product item
   const { error: updateErr } = await supabase
     .from("product_items")
     .update({
       sold: true,
       sold_at: new Date().toISOString(),
       current_location_id: null,
+      sold_to_user: sold_to_user,
+      sold_to_name: sold_to_name,
     })
     .eq("id", item_id);
 
-  return { error: updateErr };
+  if (updateErr) {
+    console.error("Update error:", updateErr);
+    return { error: updateErr };
+  }
+
+  // 3) Insert into sold_items table
+  const { error: soldItemErr } = await supabase
+    .from("sold_items")
+    .insert({
+      product_item_id: item_id,
+      product_id: itemData.product_id,
+      weight: itemData.weight,
+      sold_to_user: sold_to_user,
+      sold_to_name: sold_to_name,
+      remarks: remarks,
+    });
+
+  if (soldItemErr) {
+    console.error("Sold items error:", soldItemErr);
+    return { error: soldItemErr };
+  }
+
+  return { error: null };
 }
+
+/**
+ * Ensure that a given physical item (product_items.id)
+ * is represented exactly once in order_items.
+ *
+ * - If order_items already has product_item_id = item_id, do nothing.
+ * - Otherwise, create a simple internal order (user_id = null)
+ *   and attach this item as a single order_item.
+ *
+ * This is for reporting/analytics only. It does NOT affect stock,
+ * which is fully controlled by product_items + product_movements.
+ */
+async function ensureOrderRecordForItem(item_id: number) {
+  // 1) Check if this item is already recorded in any order_items
+  const { data: existing, error: existingErr } = await supabase
+    .from("order_items")
+    .select("id")
+    .eq("product_item_id", item_id)
+    .limit(1);
+
+  if (existingErr) {
+    console.error("Error checking existing order_items for item:", item_id, existingErr);
+    return;
+  }
+
+  if (existing && existing.length > 0) {
+    // Already counted in orders; nothing to do.
+    return;
+  }
+
+  // 2) Fetch the product item to know product_id and weight
+  const { data: itemRow, error: itemErr } = await supabase
+    .from("product_items")
+    .select("product_id, weight")
+    .eq("id", item_id)
+    .single();
+
+  if (itemErr || !itemRow) {
+    console.error("Error fetching product_item for ensureOrderRecordForItem:", item_id, itemErr);
+    return;
+  }
+
+  const { product_id, weight } = itemRow;
+
+  // 3) Create a simple internal order (no user_id, purely for reporting)
+  const { data: orderRow, error: orderErr } = await supabase
+    .from("orders")
+    .insert({
+      user_id: null,           // internal/admin sale; we can later link this to a profile
+      status: "delivered",     // since stock is already gone
+      total_weight: weight ?? 0,
+    })
+    .select("id")
+    .single();
+
+  if (orderErr || !orderRow) {
+    console.error("Error creating internal order for item:", item_id, orderErr);
+    return;
+  }
+
+  const orderId = orderRow.id;
+
+  // 4) Insert the order_item linked to this exact physical item
+  const { error: oiErr } = await supabase.from("order_items").insert({
+    order_id: orderId,
+    product_id,
+    product_item_id: item_id,
+    quantity: 1,
+    weight_at_purchase: weight,
+    price_at_purchase: null, // you can fill this later if you start storing price
+  });
+
+  if (oiErr) {
+    console.error("Error creating order_item for item:", item_id, oiErr);
+  }
+}
+
 
 /* --------------------------------------------
    8) GET HISTORY
@@ -224,7 +364,7 @@ export async function getRawGoldAvailable() {
 export async function addRawGoldEntry(type: string, weight: number, notes: string) {
   return await supabase.from("raw_gold_ledger").insert({
     entry_type: type,
-    weight_grams: weight,
+    weight: weight,
     notes,
   });
 }
