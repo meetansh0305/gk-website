@@ -1,10 +1,11 @@
-// src/pages/Admin.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import StockManagement from "./StockManagement";
 import RawGold from "./RawGold";
 import ProductsAdmin from "./ProductsAdmin";
 import { SoldItems } from "./SoldItems";
+import AdminDashboard from "./AdminDashboard";
+import AdminReorder from "./AdminReorder";
 
 /* ---------------------- Types ---------------------- */
 type ItemRow = {
@@ -67,7 +68,7 @@ function downloadCsv(filename: string, rows: Array<Array<string | number | null>
 /* ---------------------- Component ---------------------- */
 export default function Admin() {
   const [ok, setOk] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<"orders" | "customers" | "products" | "reorder" | "stock" | "raw_gold" | "sold">("orders");
+  const [tab, setTab] = useState<"dashboard" | "orders" | "customers" | "products" | "reorder" | "stock" | "raw_gold" | "sold">("dashboard");
 
   useEffect(() => {
     (async () => {
@@ -78,38 +79,36 @@ export default function Admin() {
   }, []);
 
   if (ok === null) return null;
-  if (!ok) return <div className="container">No admin access.</div>;
+  if (!ok) return <div className="container"><div className="card" style={{ textAlign: "center", padding: 40 }}>No admin access.</div></div>;
 
   return (
     <div className="container">
-      <style>{globalStyles}</style>
+      <h2 className="section-title" style={{ color: "var(--accent-dark)", borderBottom: "2px solid var(--accent)", paddingBottom: 12 }}>
+        Admin Panel
+      </h2>
 
-      <h2 className="section-title">Admin Panel</h2>
-
-      <div className="tabs" style={{ marginBottom: 12 }}>
-        <button className={`tab ${tab === "orders" ? "active" : ""}`} onClick={() => setTab("orders")}>
-          Orders
-        </button>
-        <button className={`tab ${tab === "customers" ? "active" : ""}`} onClick={() => setTab("customers")}>
-          Customers
-        </button>
-        <button className={`tab ${tab === "sold" ? "active" : ""}`} onClick={() => setTab("sold")}>
-          Sold Items
-        </button>
-        <button className={`tab ${tab === "products" ? "active" : ""}`} onClick={() => setTab("products")}>
-          Products
-        </button>
-        <button className={`tab ${tab === "reorder" ? "active" : ""}`} onClick={() => setTab("reorder")}>
-          Reorder Images
-        </button>
-        <button className={`tab ${tab === "stock" ? "active" : ""}`} onClick={() => setTab("stock")}>
-          Stock
-        </button>
-        <button className={`tab ${tab === "raw_gold" ? "active" : ""}`} onClick={() => setTab("raw_gold")}>
-          Raw Gold
-        </button>
+      <div className="tabs" style={{ marginBottom: 16, flexWrap: "wrap" }}>
+        {[
+          { key: "dashboard", label: "Dashboard" },
+          { key: "orders", label: "Orders" },
+          { key: "customers", label: "Customers" },
+          { key: "sold", label: "Sold Items" },
+          { key: "products", label: "Products" },
+          { key: "reorder", label: "Reorder Images" },
+          { key: "stock", label: "Stock" },
+          { key: "raw_gold", label: "Raw Gold" },
+        ].map((t) => (
+          <button
+            key={t.key}
+            className={`tab ${tab === t.key ? "active" : ""}`}
+            onClick={() => setTab(t.key as any)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
+      {tab === "dashboard" && <AdminDashboard />}
       {tab === "orders" && <OrdersTable />}
       {tab === "customers" && <CustomersTable />}
       {tab === "sold" && <SoldItems />}
@@ -149,7 +148,6 @@ function OrdersTable() {
   const loadAll = async () => {
     setLoading(true);
     try {
-      // fetch per-item rows
       const { data: items, error: itemsErr } = await supabase
         .from("v_order_items_detailed")
         .select("*")
@@ -161,7 +159,6 @@ function OrdersTable() {
         return;
       }
 
-      // fetch order-level view to get customer fields and status
       const { data: orders, error: ordersErr } = await supabase
         .from("v_orders_with_customer")
         .select("*");
@@ -169,11 +166,9 @@ function OrdersTable() {
         console.error("ordersErr", ordersErr);
       }
 
-      // map order-level data by order_id
       const orderMap = new Map<number, any>();
       (orders ?? []).forEach((o: any) => orderMap.set(o.order_id, o));
 
-      // merge item rows with order-level fields
       const merged: ItemRow[] = (items ?? []).map((it: any) => {
         const ord = orderMap.get(it.order_id) ?? {};
         return {
@@ -206,7 +201,6 @@ function OrdersTable() {
     }
   };
 
-  // Derived dropdown options (unique)
   const statuses = useMemo(() => {
     const set = new Set<string>();
     rows.forEach((r) => r.status && set.add(r.status));
@@ -231,7 +225,6 @@ function OrdersTable() {
   const cities = useMemo(() => Array.from(new Set(rows.map((r) => r.city ?? "").filter(Boolean))), [rows]);
   const states = useMemo(() => Array.from(new Set(rows.map((r) => r.state ?? "").filter(Boolean))), [rows]);
 
-  // Filtered rows based on filters
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       if (filterStatus && r.status !== filterStatus) return false;
@@ -313,151 +306,147 @@ function OrdersTable() {
     downloadCsv(`orders-items-${new Date().toISOString().slice(0, 10)}.csv`, out);
   };
 
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case "in_progress":
+        return { background: "rgba(176, 141, 87, 0.15)", color: "var(--accent-dark)" };
+      case "ready":
+        return { background: "#fff8e1", color: "#f57f17" };
+      case "delivered":
+        return { background: "#e8f9ee", color: "#2e7d32" };
+      default:
+        return { background: "var(--bg-cream)", color: "var(--text-muted)" };
+    }
+  };
+
   return (
     <div>
-      <div className="card filter-bar" style={{ marginBottom: 12 }}>
-        <div className="filters-row">
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
           <select className="input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="">Status: All</option>
             {statuses.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
 
           <select className="input" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
             <option value="">Category: All</option>
             {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
 
           <select className="input" value={filterSubcategory} onChange={(e) => setFilterSubcategory(e.target.value)} disabled={!filterCategory}>
             <option value="">Subcategory: All</option>
             {subcategories.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
 
           <select className="input" value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)}>
             <option value="">Customer: All</option>
             {customers.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
 
           <select className="input" value={filterCity} onChange={(e) => setFilterCity(e.target.value)}>
             <option value="">City: All</option>
             {cities.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
+              <option key={c} value={c}>{c}</option>
             ))}
           </select>
 
           <select className="input" value={filterState} onChange={(e) => setFilterState(e.target.value)}>
             <option value="">State: All</option>
             {states.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
+              <option key={s} value={s}>{s}</option>
             ))}
           </select>
         </div>
 
-        <div className="filters-row" style={{ marginTop: 10 }}>
-          <input className="input" placeholder="Product / Customer / Email contains..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1 }} />
+        <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+          <input className="input" placeholder="Search product/customer/email..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
           <input className="input" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           <input className="input" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-          <button className="btn" onClick={loadAll}>
-            Refresh
-          </button>
-          <button className="btn ghost" onClick={clearFilters}>
-            Clear
-          </button>
-          <button className="btn" onClick={exportCsv}>
-            Export CSV
-          </button>
+          <button className="btn primary" onClick={loadAll}>Refresh</button>
+          <button className="btn" onClick={clearFilters}>Clear</button>
+          <button className="btn" onClick={exportCsv} style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#fff" }}>Export CSV</button>
         </div>
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <table className="admin-table">
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr>
-              <th>Image</th>
-              <th>Order</th>
-              <th>Date</th>
-              <th>Customer</th>
-              <th>Email</th>
-              <th>Location</th>
-              <th>Balance (g)</th>
-              <th>Category</th>
-              <th>Subcategory</th>
-              <th>Product & Weight</th>
-              <th>Qty</th>
-              <th>Status</th>
+            <tr style={{ background: "var(--bg-cream)", borderBottom: "2px solid var(--border-light)" }}>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Image</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Order</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Date</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Customer</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Location</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Balance (g)</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Category</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Product</th>
+              <th style={{ padding: 14, textAlign: "center", fontWeight: 700, color: "var(--text-dark)" }}>Qty</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700, color: "var(--text-dark)" }}>Status</th>
             </tr>
           </thead>
 
           <tbody>
             {filtered.map((r) => (
-              <tr key={`${r.order_item_id ?? r.order_id}-${r.product_id ?? "p"}`}>
-                <td style={{ width: 80 }}>
+              <tr key={`${r.order_item_id ?? r.order_id}-${r.product_id ?? "p"}`} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                <td style={{ padding: 12 }}>
                   {r.product_image_url ? (
                     <img
                       src={r.product_image_url}
                       alt=""
-                      className="thumb"
+                      style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: "1px solid var(--border-light)" }}
                       onClick={() => setImgModal(r.product_image_url ?? null)}
                     />
                   ) : (
-                    <div className="thumb placeholder">—</div>
+                    <div style={{ width: 56, height: 56, background: "var(--bg-cream)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>—</div>
                   )}
                 </td>
 
-                <td>
-                  <div style={{ fontWeight: 800 }}>Order #{r.order_id}</div>
-                  <div style={{ fontSize: 12, opacity: 0.8 }}>Item #{r.order_item_id ?? "-"}</div>
+                <td style={{ padding: 12 }}>
+                  <div style={{ fontWeight: 700, color: "var(--accent-dark)" }}>#{r.order_id}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Item #{r.order_item_id ?? "-"}</div>
                 </td>
 
-                <td style={{ minWidth: 160 }}>{r.created_at ? formatDate(r.created_at) : "-"}</td>
+                <td style={{ padding: 12, minWidth: 140, color: "var(--text-muted)", fontSize: 13 }}>{r.created_at ? formatDate(r.created_at) : "-"}</td>
 
-                <td style={{ minWidth: 180 }}>{r.full_name ?? "-"}</td>
-
-                <td style={{ minWidth: 180 }}>{r.email ?? "-"}</td>
-
-                <td style={{ minWidth: 160 }}>
-                  {r.city ?? "-"}, {r.state ?? "-"}
+                <td style={{ padding: 12 }}>
+                  <div style={{ fontWeight: 600 }}>{r.full_name ?? "-"}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.email ?? ""}</div>
                 </td>
 
-                <td style={{ minWidth: 120, fontWeight: 700 }}>{r.balance_grams != null ? Number(r.balance_grams).toFixed(3) : "0.000"}</td>
+                <td style={{ padding: 12, color: "var(--text-muted)" }}>{r.city ?? "-"}, {r.state ?? "-"}</td>
 
-                <td style={{ minWidth: 160 }}>{r.category ?? "-"}</td>
+                <td style={{ padding: 12, fontWeight: 700, color: "var(--accent)" }}>{r.balance_grams != null ? Number(r.balance_grams).toFixed(3) : "0.000"}</td>
 
-                <td style={{ minWidth: 160 }}>{r.subcategory ?? "-"}</td>
-
-                <td>
-                  <div style={{ fontWeight: 700 }}>{r.product_name ?? "-"}</div>
-                  <div style={{ fontSize: 12, opacity: 0.9 }}>Weight: {r.product_weight != null ? Number(r.product_weight).toFixed(2) + " g" : "-"}</div>
+                <td style={{ padding: 12 }}>
+                  <div style={{ fontSize: 13 }}>{r.category ?? "-"}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.subcategory ?? ""}</div>
                 </td>
 
-                <td style={{ textAlign: "center", minWidth: 60 }}>{r.quantity ?? 1}</td>
+                <td style={{ padding: 12 }}>
+                  <div style={{ fontWeight: 600 }}>{r.product_name ?? "-"}</div>
+                  <div style={{ fontSize: 12, color: "var(--accent)" }}>{r.product_weight != null ? Number(r.product_weight).toFixed(2) + " g" : "-"}</div>
+                </td>
 
-                <td style={{ minWidth: 160 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className={`status-badge ${r.status ?? ""}`}>{r.status ?? "-"}</span>
+                <td style={{ padding: 12, textAlign: "center", fontWeight: 600 }}>{r.quantity ?? 1}</td>
+
+                <td style={{ padding: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span className="badge" style={{ ...getStatusStyle(r.status ?? ""), padding: "6px 12px", borderRadius: 20, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>
+                      {r.status ?? "-"}
+                    </span>
                     <select
                       className="input"
                       value={r.status ?? ""}
                       onChange={(e) => updateStatus(r.order_id, e.target.value)}
+                      style={{ width: 130, fontSize: 12 }}
                     >
                       <option value="in_progress">in_progress</option>
                       <option value="ready">ready</option>
@@ -469,7 +458,7 @@ function OrdersTable() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={12} style={{ textAlign: "center", padding: 24 }}>
+                <td colSpan={10} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
                   No items match filters.
                 </td>
               </tr>
@@ -479,19 +468,17 @@ function OrdersTable() {
       </div>
 
       {imgModal && (
-        <div className="modal-overlay" onClick={() => setImgModal(null)}>
-          <div className="modal-body" onClick={(e) => e.stopPropagation()}>
-            <img src={imgModal} alt="" style={{ maxWidth: "90vw", maxHeight: "80vh", objectFit: "contain" }} />
-            <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
-              <button className="btn" onClick={() => setImgModal(null)}>
-                Close
-              </button>
+        <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)", zIndex: 9999 }} onClick={() => setImgModal(null)}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ padding: 16, maxWidth: "90vw" }}>
+            <img src={imgModal} alt="" style={{ maxWidth: "85vw", maxHeight: "75vh", objectFit: "contain", borderRadius: 8 }} />
+            <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+              <button className="btn primary" onClick={() => setImgModal(null)}>Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {loading && <div className="card" style={{ marginTop: 12 }}>Loading...</div>}
+      {loading && <div className="card" style={{ marginTop: 16, textAlign: "center", padding: 24, color: "var(--accent)" }}>Loading...</div>}
     </div>
   );
 }
@@ -503,8 +490,6 @@ function CustomersTable() {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     load();
@@ -512,26 +497,22 @@ function CustomersTable() {
 
   const load = async () => {
     setLoading(true);
-    
-    // Get all customers
+
     const { data: profiles } = await supabase
       .from("profiles")
       .select("*")
       .order("full_name", { ascending: true });
 
-    // Get sold items with weight for each customer
     const { data: soldItems } = await supabase
       .from("product_items")
       .select("sold_to_user, weight")
       .eq("sold", true)
       .not("sold_to_user", "is", null);
 
-    // Get orders count and total weight from orders
     const { data: orderStats } = await supabase
       .from("v_customers")
       .select("user_id, orders_count, total_weight_bought");
 
-    // Calculate sold weight per customer
     const soldWeightMap = new Map<string, number>();
     (soldItems ?? []).forEach((item: any) => {
       const userId = item.sold_to_user;
@@ -539,18 +520,16 @@ function CustomersTable() {
       soldWeightMap.set(userId, (soldWeightMap.get(userId) || 0) + weight);
     });
 
-    // Map order stats
     const orderStatsMap = new Map<string, any>();
     (orderStats ?? []).forEach((stat: any) => {
       orderStatsMap.set(stat.user_id, stat);
     });
 
-    // Combine data
     const combined = (profiles ?? []).map((profile: any) => {
       const soldWeight = soldWeightMap.get(profile.id) || 0;
       const stats = orderStatsMap.get(profile.id);
       const orderWeight = Number(stats?.total_weight_bought) || 0;
-      
+
       return {
         user_id: profile.id,
         full_name: profile.full_name,
@@ -578,7 +557,7 @@ function CustomersTable() {
       }
       return true;
     });
-  }, [q, rows, dateFrom, dateTo]);
+  }, [q, rows]);
 
   const exportCsv = () => {
     const out: Array<Array<string | number | null>> = [
@@ -610,76 +589,58 @@ function CustomersTable() {
     load();
   };
 
-  const viewSoldItems = (userId: string) => {
-    // We'll pass the customer filter to the sold items tab
-    setTab("sold");
-    // Store the filter in sessionStorage so SoldItems can read it
-    sessionStorage.setItem("soldItemsCustomerFilter", userId);
-  };
-
   return (
     <div>
-      <div className="card filter-bar" style={{ marginBottom: 12 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input className="input" placeholder="Search customers..." value={q} onChange={(e) => setQ(e.target.value)} />
-          <button className="btn" onClick={load}>
-            Refresh
-          </button>
-          <button className="btn" onClick={exportCsv}>
-            Export CSV
-          </button>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <input className="input" placeholder="Search customers..." value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
+          <button className="btn primary" onClick={load}>Refresh</button>
+          <button className="btn" onClick={exportCsv} style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#fff" }}>Export CSV</button>
         </div>
       </div>
 
       <div style={{ overflowX: "auto" }}>
-        <table className="admin-table">
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr>
-              <th>Customer</th>
-              <th>Email</th>
-              <th>Contact</th>
-              <th>State</th>
-              <th>City</th>
-              <th>Balance (g)</th>
-              <th>Sold Weight (g)</th>
-              <th>Order Weight (g)</th>
-              <th>Orders Count</th>
-              <th>Actions</th>
+            <tr style={{ background: "var(--bg-cream)", borderBottom: "2px solid var(--border-light)" }}>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Customer</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Email</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Contact</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Location</th>
+              <th style={{ padding: 14, textAlign: "right", fontWeight: 700 }}>Balance (g)</th>
+              <th style={{ padding: 14, textAlign: "right", fontWeight: 700 }}>Sold (g)</th>
+              <th style={{ padding: 14, textAlign: "right", fontWeight: 700 }}>Orders (g)</th>
+              <th style={{ padding: 14, textAlign: "center", fontWeight: 700 }}>Count</th>
+              <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.user_id}>
-                <td style={{ minWidth: 180 }}>{c.full_name ?? c.email ?? c.user_id}</td>
-                <td>{c.email ?? "-"}</td>
-                <td>{c.phone ?? "-"}</td>
-                <td>{c.state ?? "-"}</td>
-                <td>{c.city ?? "-"}</td>
-                <td style={{ fontWeight: 700 }}>{c.balance_grams != null ? Number(c.balance_grams).toFixed(3) : "0.000"}</td>
-                <td style={{ fontWeight: 600, color: "#2e7d32" }}>{c.sold_weight.toFixed(3)}</td>
-                <td style={{ fontWeight: 600, color: "#0d47a1" }}>{c.order_weight.toFixed(3)}</td>
-                <td>{String(c.orders_count ?? 0)}</td>
-                <td>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button className="btn" onClick={() => viewSoldItems(c.user_id)}>
-                      View Sold Items
-                    </button>
-                    <input
-                      type="number"
-                      step="0.001"
-                      className="input"
-                      defaultValue={(c.balance_grams ?? 0).toFixed(3)}
-                      onBlur={(e) => saveBalance(c.user_id, Number(e.target.value))}
-                      style={{ width: 120 }}
-                    />
-                  </div>
+              <tr key={c.user_id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                <td style={{ padding: 12, fontWeight: 600 }}>{c.full_name ?? c.email ?? c.user_id}</td>
+                <td style={{ padding: 12, color: "var(--text-muted)", fontSize: 13 }}>{c.email ?? "-"}</td>
+                <td style={{ padding: 12, color: "var(--text-muted)" }}>{c.phone ?? "-"}</td>
+                <td style={{ padding: 12, color: "var(--text-muted)" }}>{c.city ?? "-"}, {c.state ?? "-"}</td>
+                <td style={{ padding: 12, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{c.balance_grams != null ? Number(c.balance_grams).toFixed(3) : "0.000"}</td>
+                <td style={{ padding: 12, textAlign: "right", fontWeight: 600, color: "#2e7d32" }}>{c.sold_weight.toFixed(3)}</td>
+                <td style={{ padding: 12, textAlign: "right", fontWeight: 600, color: "#0d47a1" }}>{c.order_weight.toFixed(3)}</td>
+                <td style={{ padding: 12, textAlign: "center" }}>{String(c.orders_count ?? 0)}</td>
+                <td style={{ padding: 12 }}>
+                  <input
+                    type="number"
+                    step="0.001"
+                    className="input"
+                    defaultValue={(c.balance_grams ?? 0).toFixed(3)}
+                    onBlur={(e) => saveBalance(c.user_id, Number(e.target.value))}
+                    style={{ width: 100 }}
+                  />
                 </td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} style={{ textAlign: "center", padding: 24 }}>
+                <td colSpan={9} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
                   No customers found.
                 </td>
               </tr>
@@ -688,7 +649,7 @@ function CustomersTable() {
         </table>
       </div>
 
-      {loading && <div className="card" style={{ marginTop: 12 }}>Loading...</div>}
+      {loading && <div className="card" style={{ marginTop: 16, textAlign: "center", padding: 24, color: "var(--accent)" }}>Loading...</div>}
     </div>
   );
 }
@@ -697,7 +658,6 @@ function CustomersTable() {
    REORDER IMAGES TAB
    ===================================================== */
 function ReorderImages() {
-  const [categories, setCategories] = useState<any[]>([]);
   const [subcategories, setSubcategories] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [selectedSub, setSelectedSub] = useState<number | "">("");
@@ -707,9 +667,7 @@ function ReorderImages() {
   }, []);
 
   const load = async () => {
-    const { data: c } = await supabase.from("categories").select("*").order("name");
     const { data: s } = await supabase.from("subcategories").select("*").order("name");
-    setCategories(c ?? []);
     setSubcategories(s ?? []);
   };
 
@@ -728,12 +686,9 @@ function ReorderImages() {
 
   const handleDrop = (e: any, index: number) => {
     const fromIndex = Number(e.dataTransfer.getData("index"));
-    const toIndex = index;
-
     const updated = [...products];
     const moved = updated.splice(fromIndex, 1)[0];
-    updated.splice(toIndex, 0, moved);
-
+    updated.splice(index, 0, moved);
     setProducts(updated);
   };
 
@@ -746,23 +701,21 @@ function ReorderImages() {
 
   return (
     <div>
-      <div className="card" style={{ marginBottom: 12 }}>
-        <h3>Reorder Product Images</h3>
-
+      <div className="card" style={{ marginBottom: 16 }}>
+        <h3 style={{ margin: "0 0 12px 0", color: "var(--accent-dark)" }}>Reorder Product Images</h3>
         <select
           className="input"
           value={selectedSub}
           onChange={(e) => {
             const v = e.target.value;
-            setSelectedSub(v);
+            setSelectedSub(v as any);
             if (v) loadProducts(Number(v));
           }}
+          style={{ maxWidth: 300 }}
         >
           <option value="">Select Subcategory</option>
           {subcategories.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
+            <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
       </div>
@@ -776,99 +729,19 @@ function ReorderImages() {
             onDragStart={(e) => handleDrag(e, i)}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => handleDrop(e, i)}
-            style={{ border: "2px dashed #CBD5E1", cursor: "grab" }}
+            style={{ cursor: "grab", border: "2px dashed var(--border-light)" }}
           >
-            <img src={p.image_url} style={{ width: "100%", height: 200, objectFit: "cover" }} />
-            <div style={{ marginTop: 8, fontWeight: 700 }}>{p.weight} g</div>
+            <div className="image-wrap">
+              <img src={p.image_url} className="product" alt="" />
+            </div>
+            <div style={{ marginTop: 12, fontWeight: 700, color: "var(--accent)" }}>{p.weight} g</div>
           </div>
         ))}
       </div>
 
       {products.length > 0 && (
-        <button className="btn" style={{ marginTop: 16 }} onClick={saveOrder}>
-          Save Order
-        </button>
+        <button className="btn primary" style={{ marginTop: 20 }} onClick={saveOrder}>Save Order</button>
       )}
     </div>
   );
 }
-
-/* ---------------------- Styles ---------------------- */
-const globalStyles = `
-.container { max-width: 1100px; margin: 18px auto; padding: 18px; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color: #0b2540; }
-.section-title { font-size: 22px; font-weight: 800; margin-bottom: 12px; }
-
-.tabs { display:flex; gap:8px; margin-bottom: 16px; }
-.tab { padding: 8px 12px; border-radius: 8px; background: #f3f5f8; border: 1px solid #e6e9ee; cursor: pointer; }
-.tab.active { background: #071E33; color: #fff; }
-
-.card { background: #fff; border-radius: 12px; box-shadow: 0 8px 20px rgba(11,37,64,0.04); padding: 12px; border: 1px solid #eef2f6; }
-
-.filter-bar .filters-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-.input { padding: 8px 10px; border: 1px solid #e0e6eb; border-radius: 8px; background: #fff; min-height: 40px; }
-.input:disabled { background: #fafafa; opacity: 0.95; }
-.btn { padding: 8px 12px; border-radius: 8px; background: #071E33; color: #fff; border: none; cursor: pointer; }
-.btn.ghost { background: #fff; color: #071E33; border: 1px solid #e6e9ee; }
-
-.admin-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-.admin-table thead th { text-align: left; background: #fafafa; padding: 12px; border-bottom: 1px solid #eef2f6; position: sticky; top: 0; z-index: 2; }
-.admin-table th, .admin-table td { padding: 12px; border-bottom: 1px solid #f3f6f8; vertical-align: top; }
-.admin-table tbody tr:hover { background: rgba(7,30,51,0.03); }
-
-.thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #eef2f6; }
-.thumb.placeholder { width: 64px; height: 64px; display:flex; align-items:center; justify-content:center; background:#fafafa; border-radius:8px; }
-
-.status-badge { padding: 6px 8px; border-radius: 999px; font-weight:700; font-size: 12px; }
-.status-badge.in_progress { background: #e8f4ff; color: #0d47a1; }
-.status-badge.ready { background: #fff8e1; color: #f57f17; }
-.status-badge.delivered { background: #e8f9ee; color: #2e7d32; }
-
-.modal-overlay { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.6); z-index: 9999; }
-.modal-body { background: #fff; padding: 16px; border-radius: 8px; max-width: 95vw; max-height: 90vh; overflow:auto; }
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 24px;
-  align-items: start;
-}
-
-.image-wrap {
-  position: relative;
-  width: 100%;
-  height: 320px;
-  overflow: hidden;
-  border-radius: 12px;
-  background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.product {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-@media (max-width: 900px) {
-  .filters-row { flex-direction: column; align-items: stretch; }
-  .admin-table thead th { font-size: 13px; }
-}
-
-.reorder-handle {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgba(0,0,0,0.5);
-  color: #fff;
-  padding: 4px 6px;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: grab;
-  z-index: 5;
-}
-.reorder-handle:active {
-  cursor: grabbing;
-}
-`;

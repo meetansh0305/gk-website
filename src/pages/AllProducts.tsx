@@ -52,41 +52,90 @@ export default function AllProducts() {
   const toggleWeight = (key: string) => setWeightKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
 
   return (
-    <div className="container" style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}>
-      <div className="card" style={{ position: "sticky", top: 86, height: "fit-content" }}>
-        <h3 style={{ marginTop: 0 }}>Filters</h3>
-
-        <div style={{ fontWeight: 700, marginTop: 6 }}>Category</div>
-        <select className="input" value={catId} onChange={(e)=>{ setCatId(e.target.value ? Number(e.target.value) : ""); setSubId(""); }}>
-          <option value="">All</option>
-          {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-
-        <div style={{ fontWeight: 700, marginTop: 6 }}>Subcategory</div>
-        <select className="input" value={subId} onChange={(e)=> setSubId(e.target.value ? Number(e.target.value) : "")}>
-          <option value="">All</option>
-          {filteredSubs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-
-        <div style={{ fontWeight: 700, marginTop: 6, marginBottom: 6 }}>Weight</div>
-        <div style={{ display: "grid", gap: 6, maxHeight: 280, overflow: "auto" }}>
-          {WEIGHTS.map(([a,b])=>{
-            const key = `${a}-${b}`;
-            return (
-              <label key={key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input type="checkbox" checked={weightKeys.includes(key)} onChange={()=>toggleWeight(key)} />
-                {a}–{b} g
-              </label>
-            );
-          })}
-        </div>
+    <div className="container">
+      {/* Page Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ 
+          fontSize: 28, 
+          fontWeight: 700, 
+          color: "#071E33", 
+          margin: 0,
+          fontFamily: "'Playfair Display', Georgia, serif",
+        }}>
+          All Products
+        </h1>
+        <p style={{ color: "#666", fontSize: 14, marginTop: 4 }}>
+          {filteredProducts.length} products found
+        </p>
       </div>
 
-      <div>
-        <div className="grid">
-          {filteredProducts.map(p => <ProductCard key={p.id} p={p} onClickAdd={() => add(p)} />)}
+      <div className="page-layout">
+        {/* FILTERS SIDEBAR */}
+        <div className="filter-sidebar">
+          <h3>Filters</h3>
+
+          <div className="filter-label">Category</div>
+          <select 
+            className="input" 
+            value={catId} 
+            onChange={(e) => { setCatId(e.target.value ? Number(e.target.value) : ""); setSubId(""); }}
+            style={{ marginBottom: 12 }}
+          >
+            <option value="">All Categories</option>
+            {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+
+          <div className="filter-label">Subcategory</div>
+          <select 
+            className="input" 
+            value={subId} 
+            onChange={(e) => setSubId(e.target.value ? Number(e.target.value) : "")}
+            style={{ marginBottom: 16 }}
+          >
+            <option value="">All Subcategories</option>
+            {filteredSubs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+
+          <div className="filter-label">Weight Range</div>
+          <div style={{ maxHeight: 300, overflowY: "auto", paddingRight: 8 }}>
+            {WEIGHTS.map(([a,b]) => {
+              const key = `${a}-${b}`;
+              return (
+                <label key={key} className="filter-checkbox">
+                  <input 
+                    type="checkbox" 
+                    checked={weightKeys.includes(key)} 
+                    onChange={() => toggleWeight(key)} 
+                  />
+                  {a}–{b} grams
+                </label>
+              );
+            })}
+          </div>
+
+          {(catId || subId || weightKeys.length > 0) && (
+            <button
+              className="btn"
+              style={{ width: "100%", marginTop: 16 }}
+              onClick={() => { setCatId(""); setSubId(""); setWeightKeys([]); }}
+            >
+              Clear All Filters
+            </button>
+          )}
         </div>
-        {filteredProducts.length === 0 && <p>No products found.</p>}
+
+        {/* PRODUCTS GRID */}
+        <div>
+          <div className="grid" style={{ justifyItems: "center" }}>
+            {filteredProducts.map(p => <ProductCard key={p.id} p={p} onClickAdd={() => add(p)} />)}
+          </div>
+          {filteredProducts.length === 0 && (
+            <div style={{ textAlign: "center", padding: 60, color: "#666" }}>
+              <p style={{ fontSize: 18, marginBottom: 8 }}>No products found</p>
+              <p style={{ fontSize: 14 }}>Try adjusting your filters</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

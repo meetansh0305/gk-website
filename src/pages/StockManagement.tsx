@@ -11,15 +11,6 @@ import {
 } from "../lib/stockApi";
 
 import { supabase } from "../lib/supabaseClient";
-/**
- * Corrected StockManagement.tsx
- * - Uses id / product_name / category_name / subcategory_name / current_location_name
- * - Bulk select, bulk move, bulk mark sold
- * - Filters for category, subcategory, weight buckets, shown_on_website, sold
- * - History modal
- *
- * Paste this file over your existing src/pages/StockManagement.tsx
- */
 
 export default function StockManagement() {
   const [locations, setLocations] = useState<any[]>([]);
@@ -59,12 +50,11 @@ export default function StockManagement() {
   const [newCustCity, setNewCustCity] = useState("");
   const [newCustState, setNewCustState] = useState("");
 
-
   async function loadCustomers() {
     const { data } = await supabase
-     .from("profiles")
-     .select("id, full_name, phone, city, state")
-     .order("full_name", { ascending: true });
+      .from("profiles")
+      .select("id, full_name, phone, city, state")
+      .order("full_name", { ascending: true });
 
     setCustomerList(data ?? []);
   }
@@ -86,62 +76,50 @@ export default function StockManagement() {
 
   async function refreshItems(locId: number | null = selectedLocation) {
     setLoading(true);
-  
+
     const filters: any = {};
-  
-    // 🔥 If showing sold items → DO NOT apply location filter
+
     if (filterSold !== "sold") {
       if (locId) {
         filters.location_id = locId;
       }
     }
-  
+
     if (filterCategory) filters.category_id = filterCategory;
     if (filterSub) filters.subcategory_id = filterSub;
     if (filterWeightRange) filters.weight_range = filterWeightRange;
     if (filterShowOnline) filters.show_on_website = filterShowOnline === "true";
-  
-  
-    // 🔥 Always apply sold filter cleanly
+
     if (filterSold === "sold") {
       filters.sold = true;
     } else if (filterSold === "unsold") {
       filters.sold = false;
     }
-    console.log("🔍 Filters being sent:", filters);
-    console.log("🔍 filterSold value:", filterSold);
-    console.log("🔍 locId value:", locId);
-    
-  
+
     const { data, error } = await getFilteredItems(filters);
-    console.log("🔍 Items returned:", data?.length || 0);
-    console.log("🔍 First item sold status:", data?.[0]?.sold);
 
     if (error) {
-      console.error("❌ Error fetching items:", error);
-    }    
+      console.error("Error fetching items:", error);
+    }
 
     setItems(data ?? []);
     setSelectedIds([]);
     setLoading(false);
   }
-  
 
   async function loadInitial() {
-  const { data: locs } = await getLocationsSummary();
-  setLocations(locs ?? []);
+    const { data: locs } = await getLocationsSummary();
+    setLocations(locs ?? []);
 
-  const { data: cats } = await getCategories();
-  setCategories(cats ?? []);
+    const { data: cats } = await getCategories();
+    setCategories(cats ?? []);
 
-  const { data: subs } = await getSubcategories();
-  setSubcategories(subs ?? []);
+    const { data: subs } = await getSubcategories();
+    setSubcategories(subs ?? []);
   }
-
 
   useEffect(() => {
     if (selectedLocation) refreshItems(selectedLocation);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterCategory, filterSub, filterWeightRange, filterShowOnline, filterSold]);
 
   const weightBuckets = useMemo(
@@ -161,7 +139,6 @@ export default function StockManagement() {
   }
 
   async function handleToggleShow(item: any) {
-    // use item.id everywhere
     await toggleShowOnWebsite(item.id, !item.show_on_website);
     await refreshItems();
   }
@@ -185,7 +162,7 @@ export default function StockManagement() {
     if (selectedIds.length === 0) return alert("Select items to mark sold");
     if (!confirm(`Mark ${selectedIds.length} items as sold?`)) return;
     setProcessing(true);
-    
+
     let successCount = 0;
     for (const id of selectedIds) {
       const it = items.find((i: any) => i.id === id);
@@ -193,16 +170,13 @@ export default function StockManagement() {
       const result = await markProductSold(id, it.current_location_id, "admin", "sold via admin bulk");
       if (!result.error) successCount++;
     }
-    
-    // After marking as sold, switch to "sold" filter so user can see the items
+
     setFilterSold("sold");
-    setSelectedLocation(null); // Exit location view (sold items have no location)
-    
-    // Refresh items with the new filter
+    setSelectedLocation(null);
     await refreshItems(null);
     setProcessing(false);
-    
-    alert(`✅ ${successCount} item(s) marked as sold! Viewing sold items now.`);
+
+    alert(`${successCount} item(s) marked as sold! Viewing sold items now.`);
   }
 
   async function openHistory(itemId: number) {
@@ -212,105 +186,68 @@ export default function StockManagement() {
   }
 
   return (
-    <div style={{ padding: 18 }}>
-      <h2 style={{ marginBottom: 12 }}>Stock Management</h2>
+    <div>
+      <h2 className="section-title" style={{ color: "var(--accent-dark)", marginBottom: 16 }}>Stock Management</h2>
 
-      {/* Locations summary */}
       {!selectedLocation && (
         <div>
-          <div style={{ marginBottom: 12 }}>
-            <button className="btn" onClick={loadInitial}>
-              Refresh
-            </button>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <button className="btn primary" onClick={loadInitial}>Refresh Locations</button>
           </div>
 
-          <table className="admin-table" style={{ width: "100%" }}>
-            <thead>
-              <tr>
-                <th>Location</th>
-                <th>Total Weight (g)</th>
-                <th>Total Items</th>
-                <th></th>
-                
-              </tr>
-            </thead>
-            <tbody>
-              {locations.map((loc) => (
-                <tr key={loc.location_id}>
-                  <td style={{ fontWeight: 700 }}>{loc.location_name}</td>
-                  <td>{Number(loc.total_weight_grams ?? loc.total_weight ?? 0).toFixed(3)}</td>
-                  <td>{loc.pieces ?? loc.total_items ?? 0}</td>
-                  <td>
-                    <button className="btn" onClick={() => openLocation(loc.location_id)}>
-                      View
-                    </button>
-                  </td>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "var(--bg-cream)", borderBottom: "2px solid var(--border-light)" }}>
+                  <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Location</th>
+                  <th style={{ padding: 14, textAlign: "right", fontWeight: 700 }}>Total Weight (g)</th>
+                  <th style={{ padding: 14, textAlign: "right", fontWeight: 700 }}>Total Items</th>
+                  <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Actions</th>
                 </tr>
-              ))}
-              {locations.length === 0 && (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: "center", padding: 20 }}>
-                    No locations found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {locations.map((loc) => (
+                  <tr key={loc.location_id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                    <td style={{ padding: 12, fontWeight: 700, color: "var(--accent-dark)" }}>{loc.location_name}</td>
+                    <td style={{ padding: 12, textAlign: "right", color: "var(--accent)" }}>{Number(loc.total_weight_grams ?? loc.total_weight ?? 0).toFixed(3)}</td>
+                    <td style={{ padding: 12, textAlign: "right" }}>{loc.pieces ?? loc.total_items ?? 0}</td>
+                    <td style={{ padding: 12 }}>
+                      <button className="btn primary" onClick={() => openLocation(loc.location_id)}>View Items</button>
+                    </td>
+                  </tr>
+                ))}
+                {locations.length === 0 && (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>No locations found</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {/* Location detail */}
       {selectedLocation && (
         <div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-            <button
-              className="btn"
-              onClick={() => {
-                setSelectedLocation(null);
-                setItems([]);
-              }}
-            >
-              ← Back
-            </button>
-            <button className="btn ghost" onClick={() => refreshItems()}>
-              Refresh items
-            </button>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+              <button className="btn" onClick={() => { setSelectedLocation(null); setItems([]); }}>← Back</button>
+              <button className="btn primary" onClick={() => refreshItems()}>Refresh</button>
+            </div>
 
-            {/* Filters */}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: 16 }}>
-              <select
-                className="input"
-                value={filterCategory}
-                onChange={(e) => {
-                  setFilterCategory(e.target.value ? Number(e.target.value) : "");
-                  setFilterSub("");
-                }}
-              >
-                <option value="">Category (All)</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+              <select className="input" value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value ? Number(e.target.value) : ""); setFilterSub(""); }}>
+                <option value="">Category: All</option>
+                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
 
               <select className="input" value={filterSub} onChange={(e) => setFilterSub(e.target.value ? Number(e.target.value) : "")} disabled={!filterCategory}>
-                <option value="">Subcategory (All)</option>
-                {subcategories
-                  .filter((s) => !filterCategory || Number(s.category_id) === Number(filterCategory))
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
+                <option value="">Subcategory: All</option>
+                {subcategories.filter((s) => !filterCategory || Number(s.category_id) === Number(filterCategory)).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
 
               <select className="input" value={filterWeightRange} onChange={(e) => setFilterWeightRange(e.target.value)}>
-                {weightBuckets.map((w) => (
-                  <option key={w.key} value={w.key}>
-                    {w.label}
-                  </option>
-                ))}
+                {weightBuckets.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
               </select>
 
               <select className="input" value={filterShowOnline} onChange={(e) => setFilterShowOnline(e.target.value as any)}>
@@ -319,126 +256,71 @@ export default function StockManagement() {
                 <option value="false">Hidden</option>
               </select>
 
-              <select className="input" value={filterSold} onChange={(e) => {
-                const val = e.target.value as any;
-                setFilterSold(val);
-
-                if (val === "sold") {
-                  setSelectedLocation(null);   // 🚀 EXIT LOCATION VIEW
-                  refreshItems(null);
-                }
-              }}
-            >
+              <select className="input" value={filterSold} onChange={(e) => { const val = e.target.value as any; setFilterSold(val); if (val === "sold") { setSelectedLocation(null); refreshItems(null); } }}>
                 <option value="unsold">Unsold</option>
                 <option value="sold">Sold</option>
               </select>
             </div>
 
-            {/* Bulk action controls */}
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <select className="input" value={moveToLocation} onChange={(e) => setMoveToLocation(e.target.value ? Number(e.target.value) : "")}>
-                  <option value="">Move selected to...</option>
-                  {locations.map((l) => (
-                    <option key={l.location_id} value={l.location_id}>
-                      {l.location_name}
-                    </option>
-                  ))}
-                </select>
-                <input className="input" placeholder="Remarks" value={moveRemarks} onChange={(e) => setMoveRemarks(e.target.value)} />
-                <button className="btn" onClick={handleBulkMove} disabled={processing}>
-                  Move
-                </button>
-              </div>
-
-              <button className="btn" onClick={handleBulkMarkSold} disabled={processing}>
-                Mark Sold
-              </button>
+            <div style={{ display: "flex", gap: 12, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <select className="input" value={moveToLocation} onChange={(e) => setMoveToLocation(e.target.value ? Number(e.target.value) : "")} style={{ minWidth: 180 }}>
+                <option value="">Move selected to...</option>
+                {locations.map((l) => <option key={l.location_id} value={l.location_id}>{l.location_name}</option>)}
+              </select>
+              <input className="input" placeholder="Remarks" value={moveRemarks} onChange={(e) => setMoveRemarks(e.target.value)} style={{ minWidth: 150 }} />
+              <button className="btn" onClick={handleBulkMove} disabled={processing}>Move</button>
+              <button className="btn" onClick={handleBulkMarkSold} disabled={processing}>Mark Sold</button>
             </div>
           </div>
 
           {loading ? (
-            <div className="card">Loading items...</div>
+            <div className="card" style={{ textAlign: "center", padding: 24, color: "var(--accent)" }}>Loading items...</div>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table className="admin-table">
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
-                  <tr>
-                    <th>
+                  <tr style={{ background: "var(--bg-cream)", borderBottom: "2px solid var(--border-light)" }}>
+                    <th style={{ padding: 14 }}>
                       <input type="checkbox" checked={selectedIds.length === items.length && items.length > 0} onChange={(e) => { if (e.target.checked) setSelectedIds(items.map((i: any) => i.id)); else setSelectedIds([]); }} />
                     </th>
-                    <th>Image</th>
-                    <th>Product</th>
-                    <th>Category</th>
-                    <th>Subcategory</th>
-                    <th>Weight (g)</th>
-                    <th>Location</th>
-                    <th>Sold</th>
-                    <th>Show online</th>
-                    <th>Actions</th>
+                    <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Image</th>
+                    <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Product</th>
+                    <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Category</th>
+                    <th style={{ padding: 14, textAlign: "right", fontWeight: 700 }}>Weight (g)</th>
+                    <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Location</th>
+                    <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Status</th>
+                    <th style={{ padding: 14, textAlign: "center", fontWeight: 700 }}>Show</th>
+                    <th style={{ padding: 14, textAlign: "left", fontWeight: 700 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((it: any) => (
-                    <tr key={it.id}>
-                      <td><input type="checkbox" checked={selectedIds.includes(it.id)} onChange={() => toggleSelect(it.id)} /></td>
-                      <td style={{ width: 84 }}>
+                    <tr key={it.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                      <td style={{ padding: 12 }}><input type="checkbox" checked={selectedIds.includes(it.id)} onChange={() => toggleSelect(it.id)} /></td>
+                      <td style={{ padding: 12 }}>
                         {it.image_url ? (
-                        <img
-                          src={it.image_url}
-                          className="thumb"
-                          alt=""
-                          style={{ cursor: "pointer" }}
-                          onClick={() => setImageModal(it.image_url)}
-                        /> 
-                      ) : (
-                        <div className="thumb placeholder">—</div>
-                       )}
+                          <img src={it.image_url} alt="" style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: "1px solid var(--border-light)" }} onClick={() => setImageModal(it.image_url)} />
+                        ) : (
+                          <div style={{ width: 56, height: 56, background: "var(--bg-cream)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>—</div>
+                        )}
                       </td>
-                    
-                      <td style={{ minWidth: 180 }}>
-                        {it.product_name ?? `Product #${it.product_id}`}
-                      </td>
-                      <td style={{ minWidth: 120 }}>
-                        {it.category_name ?? "-"}
-                      </td>
-                      <td style={{ minWidth: 120 }}>
-                        {it.subcategory_name ?? "-"}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        {it.weight != null ? Number(it.weight).toFixed(3) : "-"}
-                      </td>
-                      <td>{it.current_location_name ?? "-"}
-                      </td>
-                      <td>{it.sold ? `Sold${it.sold_at ? " (" + it.sold_at.split("T")[0] + ")" : ""}` : "Unsold"}</td>
-                      <td><input type="checkbox" checked={!!it.show_on_website} onChange={() => handleToggleShow(it)} /></td>
-                      <td>
+                      <td style={{ padding: 12, fontWeight: 600 }}>{it.product_name ?? `#${it.product_id}`}</td>
+                      <td style={{ padding: 12, color: "var(--text-muted)" }}>{it.category_name ?? "-"} / {it.subcategory_name ?? "-"}</td>
+                      <td style={{ padding: 12, textAlign: "right", fontWeight: 600, color: "var(--accent)" }}>{it.weight != null ? Number(it.weight).toFixed(3) : "-"}</td>
+                      <td style={{ padding: 12 }}>{it.current_location_name ?? "-"}</td>
+                      <td style={{ padding: 12 }}>{it.sold ? <span className="badge" style={{ background: "#e8f9ee", color: "#2e7d32" }}>Sold</span> : <span className="badge">Unsold</span>}</td>
+                      <td style={{ padding: 12, textAlign: "center" }}><input type="checkbox" checked={!!it.show_on_website} onChange={() => handleToggleShow(it)} /></td>
+                      <td style={{ padding: 12 }}>
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button className="btn" onClick={() => handleMoveSingle(it)}>
-                            Move
-
-                          </button>
-                          <button
-                            className="btn"
-                            onClick={() => {
-                              setSellModalItem(it);
-                              setSelectedCustomerId("");
-                              loadCustomers(); 
-                            }}
-                          >
-                           Sold
-                           </button>
-                        <button className="btn ghost" onClick={() => openHistory(it.id)}>
-                          History
-                        </button>
-                       </div>
+                          <button className="btn" onClick={() => handleMoveSingle(it)}>Move</button>
+                          <button className="btn" onClick={() => { setSellModalItem(it); setSelectedCustomerId(""); loadCustomers(); }}>Sell</button>
+                          <button className="btn" onClick={() => openHistory(it.id)}>History</button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                   {items.length === 0 && (
-                    <tr>
-                      <td colSpan={9} style={{ textAlign: "center", padding: 20 }}>No items</td>
-                    </tr>
+                    <tr><td colSpan={9} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>No items</td></tr>
                   )}
                 </tbody>
               </table>
@@ -449,376 +331,121 @@ export default function StockManagement() {
 
       {/* History modal */}
       {historyFor && (
-        <div className="modal-overlay" onClick={() => { setHistoryFor(null); setHistoryRows([]); }}>
-          <div className="modal-body" onClick={(e) => e.stopPropagation()} style={{ width: 800 }}>
-            <h3>History for item #{historyFor}</h3>
-            <div style={{ maxHeight: "60vh", overflow: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.length === items.length && items.length > 0}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedIds(items.map((i: any) => i.id));
-                          else setSelectedIds([]);
-                        }}
-                      />  
-                    </th>
-                    <th>Image</th>
-                    <th>Category</th>
-                    <th>Subcategory</th>
-                    <th>Weight (g)</th>
-                    <th>Location</th>
-                    <th>Show online</th>
-                    <th>Actions</th>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => { setHistoryFor(null); setHistoryRows([]); }}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: "90%", maxWidth: 700, maxHeight: "80vh", overflow: "auto" }}>
+            <h3 style={{ margin: "0 0 16px 0", color: "var(--accent-dark)" }}>History for item #{historyFor}</h3>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "var(--bg-cream)" }}>
+                  <th style={{ padding: 10, textAlign: "left" }}>Date</th>
+                  <th style={{ padding: 10, textAlign: "left" }}>From</th>
+                  <th style={{ padding: 10, textAlign: "left" }}>To</th>
+                  <th style={{ padding: 10, textAlign: "left" }}>By</th>
+                  <th style={{ padding: 10, textAlign: "left" }}>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyRows.map((h, i) => (
+                  <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                    <td style={{ padding: 10, fontSize: 13 }}>{h.created_at ? new Date(h.created_at).toLocaleString() : "-"}</td>
+                    <td style={{ padding: 10 }}>{h.from_location?.name ?? "-"}</td>
+                    <td style={{ padding: 10 }}>{h.to_location?.name ?? "-"}</td>
+                    <td style={{ padding: 10 }}>{h.moved_by ?? "-"}</td>
+                    <td style={{ padding: 10, color: "var(--text-muted)" }}>{h.remarks ?? "-"}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {items.map((it: any) => (
-                    <tr key={it.id}>
-                       <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(it.id)}
-                          onChange={() => toggleSelect(it.id)}
-                        />
-                       </td>
-
-                       <td style={{ width: 84 }}>
-                        {it.image_url ? (
-                          <img
-                            src={it.image_url}
-                            className="thumb"
-                            alt=""
-                            style={{ cursor: "pointer" }}
-                            onClick={() => window.open(it.image_url, "_blank")}
-                          />
-                        ) : (
-                          <div className="thumb placeholder">—</div>
-                        )}
-                       </td>
-
-                       <td>{it.product_name ?? "-"}</td>
-                       <td>{it.category_name ?? "-"}</td>
-                       <td>{it.subcategory_name ?? "-"}</td>
-                       <td>{it.current_location_name ?? "-"}</td>
-
-                       <td style={{ textAlign: "right" }}>
-                        {it.weight != null ? Number(it.weight).toFixed(3) : "-"}
-                       </td>
-
-                       <td>{it.current_location?.name ?? "-"}</td>
-
-                       <td>
-                        <input
-                          type="checkbox"
-                          checked={!!it.show_on_website}
-                          onChange={() => handleToggleShow(it)}
-                        />
-                       </td>
-
-                       <td>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button className="btn" onClick={() => handleMoveSingle(it)}>
-                            Move
-                          </button>
-                          <button
-                            className="btn"
-                            onClick={async () => {
-                              if (confirm("Mark sold?")) {
-                                const result = await markProductSold(
-                                  it.id,
-                                  it.current_location_id,
-                                  "admin",
-                                  "sold via admin"
-                                );
-
-                                if (result.error) {
-                                  alert("Error marking as sold: " + result.error.message);
-                                  return;
-                                }
-                                 // After marking as sold, switch to "sold" filter so user can see the item
-                                 setFilterSold("sold");
-                                setSelectedLocation(null); 
-                                // Exit location view (sold items have no location)
-      
-                                // Refresh items with the new filter
-                                await refreshItems(null);
-                                alert("✅ Item marked as sold! Viewing sold items now.");
-                              }
-                            }}
-                          >
-                            Sold
-                          </button>
-                          <button className="btn ghost" onClick={() => openHistory(it.id)}>
-                           Hisotry
-                          </button>
-                        </div>
-                       </td>
-                    </tr>
-                  ))}
-
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={9} style={{ textAlign: "center", padding: 20 }}>
-                        No items
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
-              <button className="btn" onClick={() => { setHistoryFor(null); setHistoryRows([]); }}>Close</button>
+                ))}
+                {historyRows.length === 0 && <tr><td colSpan={5} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>No history</td></tr>}
+              </tbody>
+            </table>
+            <div style={{ marginTop: 16, textAlign: "right" }}>
+              <button className="btn primary" onClick={() => { setHistoryFor(null); setHistoryRows([]); }}>Close</button>
             </div>
           </div>
         </div>
       )}
-      {/* Move single item modal */}
+
+      {/* Move single modal */}
       {moveModalItem && (
-        <div className="modal-overlay" onClick={() => setMoveModalItem(null)}>
-          <div
-           className="modal-body"
-           onClick={(e) => e.stopPropagation()}
-           style={{ width: 400 }}
-          >
-            <h3>Move item #{moveModalItem.id}</h3>
-
-            <div style={{ marginTop: 12 }}>
-              <label>Move to location:</label>
-              <select
-               className="input"
-               value={moveModalTarget}
-               onChange={(e) =>
-                setMoveModalTarget(
-                  e.target.value ? Number(e.target.value) : ""
-                )
-               }
-               style={{ width: "100%", marginTop: 6 }}
-              >
-                <option value="">Select location</option>
-                {locations.map((l) => (
-                  <option key={l.location_id} value={l.location_id}>
-                    {l.location_id} – {l.location_name}
-                  </option>
-              ))}
-              </select>
-            </div>
-
-            <div
-              style={{
-                marginTop: 20,
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 8,
-              }}
-            >
-              <button className="btn ghost" onClick={() => setMoveModalItem(null)}>
-                Cancel
-              </button>
-              <button
-               className="btn"
-               onClick={async () => {
-                if (!moveModalTarget) {
-                  alert("Select a location");
-                  return;
-                }
-                const fromLocationId =
-                  moveModalItem.current_location_id ?? selectedLocation;
-
-                if (!fromLocationId){
-                  alert("Current location unknown - cannot move item.");
-                  return;
-                }
-
-                try {
-                  setProcessing(true);
-
-                  await moveProductItem(
-                    moveModalItem.id,
-                    fromLocationId,
-                    Number(moveModalTarget),
-                    "admin",
-                    "move single via modal"
-                  );
-
-                  alert("Item moved successfully.");
-
-                  setMoveModalItem(null);
-                  setMoveModalTarget("");
-                  await refreshItems();
-                } catch (err) {
-                  console.error("Move failed", err);
-                  alert("Move failed - check console for details.");
-                } finally {
-                  setProcessing(false);
-                }
-              }}
-            >
-              Move
-              </button>
-            </div>
-          </div>
-        </div>
-      )}              
-            {/* Image Modal */}
-      {imageModal && (
-        <div className="modal-overlay" onClick={() => setImageModal(null)}>
-          <div
-            className="modal-body"
-            onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "90vw", maxHeight: "90vh" }}
-          >
-            <img
-              src={imageModal}
-              alt=""
-              style={{
-                width: "100%",
-                height: "auto",
-                maxHeight: "80vh",
-                objectFit: "contain",
-              }}
-            />
-
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button className="btn" onClick={() => setImageModal(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Sell Modal */}
-      {sellModalItem && (
-        <div className="modal-overlay" onClick={() => setSellModalItem(null)}>
-         <div
-          className="modal-body"
-           style={{ width: 420 }}
-           onClick={(e) => e.stopPropagation()}
-          >
-           <h3>Sell Item #{sellModalItem.id}</h3>  
-          {/* Customer Dropdown */}
-          <div style={{ marginTop: 12 }}>
-            <label>Customer:</label>
-            <select
-              className="input"
-              value={selectedCustomerId}
-              onChange={(e) => setSelectedCustomerId(e.target.value)}
-              style={{ width: "100%", marginTop: 6 }}
-            >
-              <option value="">Select customer</option>
-              {customerList.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.full_name} — {c.phone}
-                </option>
-              ))}
-              <option value="__new">➕ Add new customer</option>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setMoveModalItem(null)}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: 400 }}>
+            <h3 style={{ margin: "0 0 16px 0", color: "var(--accent-dark)" }}>Move item #{moveModalItem.id}</h3>
+            <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Move to location:</label>
+            <select className="input" value={moveModalTarget} onChange={(e) => setMoveModalTarget(e.target.value ? Number(e.target.value) : "")} style={{ width: "100%", marginTop: 6 }}>
+              <option value="">Select location</option>
+              {locations.map((l) => <option key={l.location_id} value={l.location_id}>{l.location_name}</option>)}
             </select>
+            <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button className="btn" onClick={() => setMoveModalItem(null)}>Cancel</button>
+              <button className="btn primary" onClick={async () => {
+                if (!moveModalTarget) { alert("Select a location"); return; }
+                setProcessing(true);
+                await moveProductItem(moveModalItem.id, moveModalItem.current_location_id ?? selectedLocation, Number(moveModalTarget), "admin", "move single");
+                setMoveModalItem(null);
+                await refreshItems();
+                setProcessing(false);
+              }}>Move</button>
+            </div>
           </div>
-           {/* Add new customer form */}
-
-           {selectedCustomerId === "__new" && (
-            <div style={{ marginTop: 16 }}>
-              <label>Full Name</label>
-              <input className="input" value={newCustName} onChange={(e) => setNewCustName(e.target.value)} />
-              <label style={{ marginTop: 10 }}>Phone</label>
-              <input className="input" value={newCustPhone} onChange={(e) => setNewCustPhone(e.target.value)} />
-              <label style={{ marginTop: 10 }}>City</label>
-              <input className="input" value={newCustCity} onChange={(e) => setNewCustCity(e.target.value)} />
-              <label style={{ marginTop: 10 }}>State</label>
-              <input className="input" value={newCustState} onChange={(e) => setNewCustState(e.target.value)} />
-
-              <button
-                className ="btn"
-                style={{ marginTop: 12 }}
-                onClick={async () => {
-                  if (!newCustName || !newCustPhone) {
-                    alert("Name and phone are required");
-                    return;
-                  }
-                          const { data, error } = await supabase
-                .from("profiles")
-                .insert({
-                  id: crypto.randomUUID(),
-                  full_name: newCustName,
-                  phone: newCustPhone,
-                  city: newCustCity,
-                  state: newCustState,
-                })
-                .select()
-                .single();
-
-              if (error) {
-                alert("Failed to add customer");
-                return;
-              }
-
-              setSelectedCustomerId(data.id);
-              setNewCustName(data.full_name);
-              loadCustomers();
-              alert("Customer added!");
-            }}
-          >
-            Save Customer
-          </button>
         </div>
       )}
 
-      {/* ACTION BUTTONS */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20, gap: 10 }}>
-        <button className="btn ghost" onClick={() => setSellModalItem(null)}>Cancel</button>
-
-        <button
-  className="btn"
-  onClick={async () => {
-    if (!selectedCustomerId || selectedCustomerId === "__new") {
-      alert("Select or create a customer first");
-      return;
-    }
-
-    const result = await markProductSold(
-      sellModalItem.id,
-      sellModalItem.current_location_id,
-      "admin",
-      "sold via admin",
-      selectedCustomerId !== "__new" ? selectedCustomerId : null,
-      selectedCustomerId === "__new" ? newCustName : null
-    );
-  
-    if (result.error) {
-      alert("Error marking as sold: " + result.error.message);
-      return;
-    }
-
-    // After marking as sold, switch to "sold" filter so user can see the item
-    setFilterSold("sold");
-    setSelectedLocation(null); // Exit location view (sold items have no location)
-    
-    // Refresh items with the new filter
-    await refreshItems(null);
-    
-    alert("✅ Item marked as sold! Viewing sold items now.");
-    setSellModalItem(null)
-          }}
-        >
-          Confirm Sell
-        </button>
-      </div>
-    </div>
-  </div>
+      {/* Image modal */}
+      {imageModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setImageModal(null)}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "90vw" }}>
+            <img src={imageModal} alt="" style={{ maxWidth: "85vw", maxHeight: "75vh", objectFit: "contain", borderRadius: 8 }} />
+            <div style={{ marginTop: 12, textAlign: "right" }}>
+              <button className="btn primary" onClick={() => setImageModal(null)}>Close</button>
+            </div>
+          </div>
+        </div>
       )}
-  </div>
- );
-}
 
-   
+      {/* Sell modal */}
+      {sellModalItem && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }} onClick={() => setSellModalItem(null)}>
+          <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: 420 }}>
+            <h3 style={{ margin: "0 0 16px 0", color: "var(--accent-dark)" }}>Sell Item #{sellModalItem.id}</h3>
+            <label style={{ fontSize: 12, color: "var(--text-muted)" }}>Customer:</label>
+            <select className="input" value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)} style={{ width: "100%", marginTop: 6 }}>
+              <option value="">Select customer</option>
+              {customerList.map((c) => <option key={c.id} value={c.id}>{c.full_name} — {c.phone}</option>)}
+              <option value="__new">+ Add new customer</option>
+            </select>
+
+            {selectedCustomerId === "__new" && (
+              <div style={{ marginTop: 16 }}>
+                <input className="input" placeholder="Full Name" value={newCustName} onChange={(e) => setNewCustName(e.target.value)} />
+                <input className="input" placeholder="Phone" value={newCustPhone} onChange={(e) => setNewCustPhone(e.target.value)} style={{ marginTop: 8 }} />
+                <input className="input" placeholder="City" value={newCustCity} onChange={(e) => setNewCustCity(e.target.value)} style={{ marginTop: 8 }} />
+                <input className="input" placeholder="State" value={newCustState} onChange={(e) => setNewCustState(e.target.value)} style={{ marginTop: 8 }} />
+                <button className="btn" style={{ marginTop: 12 }} onClick={async () => {
+                  if (!newCustName || !newCustPhone) { alert("Name and phone required"); return; }
+                  const { data, error } = await supabase.from("profiles").insert({ id: crypto.randomUUID(), full_name: newCustName, phone: newCustPhone, city: newCustCity, state: newCustState }).select().single();
+                  if (error) { alert("Failed to add customer"); return; }
+                  setSelectedCustomerId(data.id);
+                  loadCustomers();
+                  alert("Customer added!");
+                }}>Save Customer</button>
+              </div>
+            )}
+
+            <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button className="btn" onClick={() => setSellModalItem(null)}>Cancel</button>
+              <button className="btn primary" onClick={async () => {
+                if (!selectedCustomerId || selectedCustomerId === "__new") { alert("Select or create customer"); return; }
+                const result = await markProductSold(sellModalItem.id, sellModalItem.current_location_id, "admin", "sold via admin", selectedCustomerId);
+                if (result.error) { alert("Error: " + result.error.message); return; }
+                setFilterSold("sold");
+                setSelectedLocation(null);
+                await refreshItems(null);
+                alert("Item marked as sold!");
+                setSellModalItem(null);
+              }}>Confirm Sell</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

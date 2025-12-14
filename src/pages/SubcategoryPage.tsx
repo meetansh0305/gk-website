@@ -61,7 +61,6 @@ export default function SubcategoryPage() {
     })();
   }, [subcategoryId]);
 
-  // Show live stock first
   const ordered = useMemo(() => {
     const live = products.filter((p) => p.is_live_stock);
     const normal = products.filter((p) => !p.is_live_stock);
@@ -86,68 +85,110 @@ export default function SubcategoryPage() {
 
   const bannerUrl =
     products[0]?.image_url ??
-    "https://images.unsplash.com/photo-1543294001-f7cd5d7fb516?q=80&w=1600&auto=format&fit=crop";
+    "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=1600&auto=format&fit=crop";
 
   return (
     <div>
-      {/* Banner */}
+      {/* Premium Banner */}
       <div
         style={{
           width: "100%",
-          height: 360,
-          background: `url('${bannerUrl}') center/cover no-repeat`,
-          display: "flex",
-          alignItems: "center",
+          height: 300,
+          position: "relative",
+          overflow: "hidden",
         }}
       >
         <div
           style={{
-            marginLeft: "6%",
-            background: "rgba(255,255,255,.9)",
-            padding: "12px 16px",
-            borderRadius: 12,
-            fontWeight: 800,
+            position: "absolute",
+            inset: 0,
+            background: `url('${bannerUrl}') center/cover no-repeat`,
+            filter: "blur(2px)",
+            transform: "scale(1.05)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(135deg, rgba(7, 30, 51, 0.7) 0%, rgba(7, 30, 51, 0.3) 100%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: "6%",
+            bottom: 40,
+            zIndex: 1,
           }}
         >
-          {sub?.name}
+          <h1
+            style={{
+              color: "#fff",
+              fontSize: 36,
+              fontWeight: 700,
+              margin: 0,
+              fontFamily: "'Playfair Display', Georgia, serif",
+              textShadow: "0 2px 20px rgba(0,0,0,0.3)",
+            }}
+          >
+            {sub?.name}
+          </h1>
+          <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, marginTop: 8 }}>
+            {filtered.length} products available
+          </p>
         </div>
       </div>
 
-      <div
-        className="container"
-        style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}
-      >
-        {/* FILTERS */}
-        <div className="card" style={{ position: "sticky", top: 86 }}>
-          <h3 style={{ marginTop: 0 }}>Filters</h3>
-          <div style={{ fontWeight: 700 }}>Weight</div>
+      <div className="container">
+        <div className="page-layout" style={{ marginTop: 24 }}>
+          {/* FILTERS */}
+          <div className="filter-sidebar">
+            <h3>Filters</h3>
+            <div className="filter-label">Weight Range</div>
 
-          <div style={{ display: "grid", gap: 6 }}>
-            {WEIGHT_BUCKETS.map(([a, b]) => {
-              const key = `${a}-${b}`;
-              return (
-                <label key={key} style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedRanges.includes(key)}
-                    onChange={() => toggleRange(key)}
-                  />
-                  {a}–{b} g
-                </label>
-              );
-            })}
+            <div style={{ maxHeight: 400, overflowY: "auto" }}>
+              {WEIGHT_BUCKETS.map(([a, b]) => {
+                const key = `${a}-${b}`;
+                return (
+                  <label key={key} className="filter-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedRanges.includes(key)}
+                      onChange={() => toggleRange(key)}
+                    />
+                    {a}–{b} grams
+                  </label>
+                );
+              })}
+            </div>
+
+            {selectedRanges.length > 0 && (
+              <button
+                className="btn"
+                style={{ width: "100%", marginTop: 16 }}
+                onClick={() => setSelectedRanges([])}
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
-        </div>
 
-        {/* PRODUCTS */}
-        <div>
-          <div className="grid">
-            {filtered.map((p) => (
-              <ProductCard key={p.id} p={p} onClickAdd={() => add(p)} />
-            ))}
+          {/* PRODUCTS */}
+          <div>
+            <div className="grid" style={{ justifyItems: "center" }}>
+              {filtered.map((p) => (
+                <ProductCard key={p.id} p={p} onClickAdd={() => add(p)} />
+              ))}
+            </div>
+
+            {filtered.length === 0 && (
+              <div style={{ textAlign: "center", padding: 60, color: "#666" }}>
+                <p style={{ fontSize: 18, marginBottom: 8 }}>No products found</p>
+                <p style={{ fontSize: 14 }}>Try adjusting your filters</p>
+              </div>
+            )}
           </div>
-
-          {filtered.length === 0 && <p>No matching products.</p>}
         </div>
       </div>
     </div>

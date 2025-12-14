@@ -1,432 +1,352 @@
-import React, { useEffect, useState } from "react";
+// src/pages/SoldItems.tsx
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export function SoldItems() {
-  const [soldItems, setSoldItems] = useState<any[]>([]);
-  const [filteredItems, setFilteredItems] = useState<any[]>([]);
+type SoldItem = {
+  id: number;
+  weight: number | null;
+  image_url: string | null;
+  sold_at: string | null;
+  products: {
+    id: number;
+    name: string;
+    image_url: string | null;
+    weight: number | null;
+    categories: { name: string } | null;
+    subcategories: { name: string } | null;
+  } | null;
+  profiles: {
+    full_name: string;
+    phone: string;
+    city: string;
+    state: string;
+  } | null;
+};
+
+export default function SoldItems() {
+  const [items, setItems] = useState<SoldItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [subcategoryFilter, setSubcategoryFilter] = useState<string>("all");
+  const [customerFilter, setCustomerFilter] = useState<string>("all");
+  const [cityFilter, setCityFilter] = useState<string>("all");
+  const [stateFilter, setStateFilter] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [modalImage, setModalImage] = useState<string | null>(null);
 
-  const [categories, setCategories] = useState<any[]>([]);
-  const [subcategories, setSubcategories] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
+  // Get unique values for filters
+  const [categories, setCategories] = useState<string[]>([]);
+  const [subcategories, setSubcategories] = useState<string[]>([]);
+  const [customers, setCustomers] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [states, setStates] = useState<string[]>([]);
 
-  // Filters
-  const [filterCategory, setFilterCategory] = useState<string>("");
-  const [filterSubcategory, setFilterSubcategory] = useState<string>("");
-  const [filterCustomer, setFilterCustomer] = useState<string>("");
-  const [filterDateFrom, setFilterDateFrom] = useState<string>("");
-  const [filterDateTo, setFilterDateTo] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-
-  const [imageModal, setImageModal] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadData();
-    
-    // Check if we were redirected from customers page with a filter
-    const customerFilter = sessionStorage.getItem("soldItemsCustomerFilter");
-    if (customerFilter) {
-      setFilterCustomer(customerFilter);
-      sessionStorage.removeItem("soldItemsCustomerFilter");
-    }
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [soldItems, filterCategory, filterSubcategory, filterCustomer, filterDateFrom, filterDateTo, searchTerm]);
-
-  async function loadData() {
+  const load = async () => {
     setLoading(true);
-
-    // Load sold items with related data
-    const { data: items, error } = await supabase
+    const { data, error } = await supabase
       .from("product_items")
       .select(`
-        id,
-        product_id,
-        weight,
-        image_url,
-        sold_at,
-        sold_to_user,
-        sold_to_name,
-        products:product_id (
+        *,
+        products (
           id,
           name,
-          category_id,
-          subcategory_id,
-          category:category_id ( id, name ),
-          subcategory:subcategory_id ( id, name )
+          image_url,
+          weight,
+          categories ( name ),
+          subcategories ( name )
         ),
-        profile:sold_to_user (
-          id,
-          full_name,
-          email,
-          phone,
-          city,
-          state,
-          balance_grams
-        )
+        profiles!sold_to_user ( full_name, phone, city, state )
       `)
       .eq("sold", true)
       .order("sold_at", { ascending: false });
 
     if (error) {
       console.error("Error loading sold items:", error);
-      setLoading(false);
-      return;
     }
 
-    // Clean and structure the data
-    const cleaned = items?.map((item: any) => ({
-      id: item.id,
-      product_id: item.product_id,
-      product_name: item.products?.name || "Unknown Product",
-      category_id: item.products?.category_id,
-      category_name: item.products?.category?.name || "-",
-      subcategory_id: item.products?.subcategory_id,
-      subcategory_name: item.products?.subcategory?.name || "-",
-      weight: item.weight,
-      image_url: item.image_url,
-      sold_at: item.sold_at,
-      sold_date: item.sold_at ? new Date(item.sold_at).toLocaleDateString() : "-",
-      customer_id: item.sold_to_user,
-      customer_name: item.profile?.full_name || item.sold_to_name || "-",
-      customer_email: item.profile?.email || "-",
-      customer_phone: item.profile?.phone || "-",
-      customer_city: item.profile?.city || "-",
-      customer_state: item.profile?.state || "-",
-      customer_location: item.profile?.city && item.profile?.state 
-        ? `${item.profile.city}, ${item.profile.state}`
-        : item.profile?.city || item.profile?.state || "-",
-      customer_balance: item.profile?.balance_grams || 0,
-    })) || [];
+    const itemsData = (data as any) ?? [];
+    setItems(itemsData);
 
-    setSoldItems(cleaned);
+    // Extract unique values for filters
+    const uniqueCategories = [...new Set(itemsData.map((i: any) => i.products?.categories?.name).filter(Boolean))];
+    const uniqueSubcategories = [...new Set(itemsData.map((i: any) => i.products?.subcategories?.name).filter(Boolean))];
+    const uniqueCustomers = [...new Set(itemsData.map((i: any) => i.profiles?.full_name).filter(Boolean))];
+    const uniqueCities = [...new Set(itemsData.map((i: any) => i.profiles?.city).filter(Boolean))];
+    const uniqueStates = [...new Set(itemsData.map((i: any) => i.profiles?.state).filter(Boolean))];
 
-    // Load categories
-    const { data: cats } = await supabase
-      .from("categories")
-      .select("*")
-      .order("name");
-    setCategories(cats || []);
-
-    // Load subcategories
-    const { data: subs } = await supabase
-      .from("subcategories")
-      .select("*")
-      .order("name");
-    setSubcategories(subs || []);
-
-    // Load unique customers who have bought items
-    const uniqueCustomers = cleaned
-      .filter((item: any) => item.customer_id)
-      .reduce((acc: any[], item: any) => {
-        if (!acc.find(c => c.id === item.customer_id)) {
-          acc.push({
-            id: item.customer_id,
-            name: item.customer_name,
-            email: item.customer_email,
-          });
-        }
-        return acc;
-      }, []);
-    setCustomers(uniqueCustomers);
+    setCategories(uniqueCategories as string[]);
+    setSubcategories(uniqueSubcategories as string[]);
+    setCustomers(uniqueCustomers as string[]);
+    setCities(uniqueCities as string[]);
+    setStates(uniqueStates as string[]);
 
     setLoading(false);
-  }
+  };
 
-  function applyFilters() {
-    let filtered = [...soldItems];
+  useEffect(() => {
+    load();
+  }, []);
+
+  const handleClear = () => {
+    setSearch("");
+    setCategoryFilter("all");
+    setSubcategoryFilter("all");
+    setCustomerFilter("all");
+    setCityFilter("all");
+    setStateFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  };
+
+  const filtered = items.filter((item) => {
+    // Search filter
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      const hay = `${item.products?.name ?? ""} ${item.profiles?.full_name ?? ""} ${item.profiles?.phone ?? ""} ${item.id}`.toLowerCase();
+      if (!hay.includes(s)) return false;
+    }
 
     // Category filter
-    if (filterCategory) {
-      filtered = filtered.filter(item => 
-        item.category_id?.toString() === filterCategory
-      );
-    }
+    if (categoryFilter !== "all" && item.products?.categories?.name !== categoryFilter) return false;
 
     // Subcategory filter
-    if (filterSubcategory) {
-      filtered = filtered.filter(item => 
-        item.subcategory_id?.toString() === filterSubcategory
-      );
-    }
+    if (subcategoryFilter !== "all" && item.products?.subcategories?.name !== subcategoryFilter) return false;
 
     // Customer filter
-    if (filterCustomer) {
-      filtered = filtered.filter(item => 
-        item.customer_id === filterCustomer
-      );
+    if (customerFilter !== "all" && item.profiles?.full_name !== customerFilter) return false;
+
+    // City filter
+    if (cityFilter !== "all" && item.profiles?.city !== cityFilter) return false;
+
+    // State filter
+    if (stateFilter !== "all" && item.profiles?.state !== stateFilter) return false;
+
+    // Date range filter
+    if (dateFrom && item.sold_at) {
+      const soldDate = new Date(item.sold_at);
+      const fromDate = new Date(dateFrom);
+      if (soldDate < fromDate) return false;
     }
 
-    // Date from filter
-    if (filterDateFrom) {
-      const fromDate = new Date(filterDateFrom);
-      filtered = filtered.filter(item => {
-        if (!item.sold_at) return false;
-        return new Date(item.sold_at) >= fromDate;
-      });
+    if (dateTo && item.sold_at) {
+      const soldDate = new Date(item.sold_at);
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      if (soldDate > toDate) return false;
     }
 
-    // Date to filter
-    if (filterDateTo) {
-      const toDate = new Date(filterDateTo);
-      toDate.setHours(23, 59, 59); // End of day
-      filtered = filtered.filter(item => {
-        if (!item.sold_at) return false;
-        return new Date(item.sold_at) <= toDate;
-      });
-    }
-
-    // Search term (product name, customer name, email)
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(item =>
-        item.product_name.toLowerCase().includes(search) ||
-        item.customer_name.toLowerCase().includes(search) ||
-        item.customer_email.toLowerCase().includes(search)
-      );
-    }
-
-    setFilteredItems(filtered);
-  }
-
-  function exportToCSV() {
-    if (filteredItems.length === 0) {
-      alert("No items to export");
-      return;
-    }
-
-    // Prepare CSV headers
-    const headers = [
-      "Item ID",
-      "Date Sold",
-      "Product Name",
-      "Category",
-      "Subcategory",
-      "Weight (g)",
-      "Customer Name",
-      "Customer Email",
-      "Customer Phone",
-      "Customer Location",
-      "Customer Balance (g)",
-    ];
-
-    // Prepare CSV rows
-    const rows = filteredItems.map(item => [
-      item.id,
-      item.sold_date,
-      item.product_name,
-      item.category_name,
-      item.subcategory_name,
-      item.weight?.toFixed(3) || "0",
-      item.customer_name,
-      item.customer_email,
-      item.customer_phone,
-      item.customer_location,
-      item.customer_balance?.toFixed(3) || "0",
-    ]);
-
-    // Combine headers and rows
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(row => 
-        row.map(cell => `"${cell}"`).join(",")
-      )
-    ].join("\n");
-
-    // Create and download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `sold_items_${new Date().toISOString().split("T")[0]}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-
-  function clearFilters() {
-    setFilterCategory("");
-    setFilterSubcategory("");
-    setFilterCustomer("");
-    setFilterDateFrom("");
-    setFilterDateTo("");
-    setSearchTerm("");
-  }
-
-  // Calculate totals
-  const totalWeight = filteredItems.reduce((sum, item) => sum + (item.weight || 0), 0);
-  const totalItems = filteredItems.length;
+    return true;
+  });
 
   return (
-    <div style={{ padding: 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>Sold Items</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={loadData} disabled={loading}>
-            Refresh
-          </button>
-          <button className="btn" onClick={exportToCSV} disabled={filteredItems.length === 0}>
-            Export CSV
-          </button>
-        </div>
-      </div>
+    <div style={{ padding: 20 }}>
+      <h2 style={{ margin: "0 0 20px 0", fontSize: 28, fontWeight: 700, color: "#8B6F47" }}>
+        Sold Items
+      </h2>
 
       {/* Filters */}
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-          <div>
-            <label style={{ fontSize: 12, marginBottom: 4, display: "block" }}>Search</label>
-            <input
-              className="input"
-              placeholder="Product, customer..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      <div style={{ background: "white", padding: 20, borderRadius: 8, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 12 }}>
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
+          >
+            <option value="all">Category: All</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
 
-          <div>
-            <label style={{ fontSize: 12, marginBottom: 4, display: "block" }}>Category</label>
-            <select
-              className="input"
-              value={filterCategory}
-              onChange={(e) => {
-                setFilterCategory(e.target.value);
-                setFilterSubcategory("");
-              }}
-            >
-              <option value="">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={subcategoryFilter}
+            onChange={(e) => setSubcategoryFilter(e.target.value)}
+            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
+          >
+            <option value="all">Subcategory: All</option>
+            {subcategories.map(sub => (
+              <option key={sub} value={sub}>{sub}</option>
+            ))}
+          </select>
 
-          <div>
-            <label style={{ fontSize: 12, marginBottom: 4, display: "block" }}>Subcategory</label>
-            <select
-              className="input"
-              value={filterSubcategory}
-              onChange={(e) => setFilterSubcategory(e.target.value)}
-              disabled={!filterCategory}
-            >
-              <option value="">All Subcategories</option>
-              {subcategories
-                .filter(s => !filterCategory || s.category_id?.toString() === filterCategory)
-                .map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-            </select>
-          </div>
+          <select
+            value={customerFilter}
+            onChange={(e) => setCustomerFilter(e.target.value)}
+            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
+          >
+            <option value="all">Customer: All</option>
+            {customers.map(cust => (
+              <option key={cust} value={cust}>{cust}</option>
+            ))}
+          </select>
 
-          <div>
-            <label style={{ fontSize: 12, marginBottom: 4, display: "block" }}>Customer</label>
-            <select
-              className="input"
-              value={filterCustomer}
-              onChange={(e) => setFilterCustomer(e.target.value)}
-            >
-              <option value="">All Customers</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={cityFilter}
+            onChange={(e) => setCityFilter(e.target.value)}
+            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
+          >
+            <option value="all">City: All</option>
+            {cities.map(city => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
 
-          <div>
-            <label style={{ fontSize: 12, marginBottom: 4, display: "block" }}>Date From</label>
-            <input
-              className="input"
-              type="date"
-              value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, marginBottom: 4, display: "block" }}>Date To</label>
-            <input
-              className="input"
-              type="date"
-              value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
-            />
-          </div>
+          <select
+            value={stateFilter}
+            onChange={(e) => setStateFilter(e.target.value)}
+            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
+          >
+            <option value="all">State: All</option>
+            {states.map(state => (
+              <option key={state} value={state}>{state}</option>
+            ))}
+          </select>
         </div>
 
-        <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <button className="btn ghost" onClick={clearFilters}>
-            Clear Filters
+        <input
+          type="text"
+          placeholder="Search product/customer/email..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ 
+            width: "100%", 
+            padding: "10px 12px", 
+            borderRadius: 6, 
+            border: "1px solid #ddd",
+            marginBottom: 12,
+            fontSize: 14
+          }}
+        />
+
+        <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd" }}
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd" }}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: 12 }}>
+          <button
+            onClick={load}
+            style={{
+              padding: "8px 20px",
+              background: "#8B6F47",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: 600
+            }}
+          >
+            Refresh
           </button>
-          <div style={{ fontSize: 14, color: "#666" }}>
-            Showing {totalItems} items • Total Weight: {totalWeight.toFixed(3)}g
-          </div>
+          <button
+            onClick={handleClear}
+            style={{
+              padding: "8px 20px",
+              background: "white",
+              color: "#333",
+              border: "1px solid #ddd",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: 600
+            }}
+          >
+            Clear
+          </button>
         </div>
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="card">Loading sold items...</div>
+        <div style={{ textAlign: "center", padding: 40, background: "white", borderRadius: 8 }}>
+          Loading...
+        </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table className="admin-table">
+        <div style={{ overflowX: "auto", background: "white", borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr>
-                <th style={{ width: 80 }}>Image</th>
-                <th>Date</th>
-                <th>Product</th>
-                <th>Category</th>
-                <th>Subcategory</th>
-                <th style={{ textAlign: "right" }}>Weight (g)</th>
-                <th>Customer Name</th>
-                <th>Customer Email</th>
-                <th>Customer Location</th>
-                <th style={{ textAlign: "right" }}>Balance (g)</th>
+              <tr style={{ background: "#f9f7f4", borderBottom: "2px solid #e5e5e5" }}>
+                <th style={{ padding: 14, textAlign: "left", fontWeight: 700, fontSize: 13 }}>Image</th>
+                <th style={{ padding: 14, textAlign: "left", fontWeight: 700, fontSize: 13 }}>Item</th>
+                <th style={{ padding: 14, textAlign: "left", fontWeight: 700, fontSize: 13 }}>Date</th>
+                <th style={{ padding: 14, textAlign: "left", fontWeight: 700, fontSize: 13 }}>Customer</th>
+                <th style={{ padding: 14, textAlign: "left", fontWeight: 700, fontSize: 13 }}>Location</th>
+                <th style={{ padding: 14, textAlign: "left", fontWeight: 700, fontSize: 13 }}>Category</th>
+                <th style={{ padding: 14, textAlign: "left", fontWeight: 700, fontSize: 13 }}>Subcategory</th>
+                <th style={{ padding: 14, textAlign: "right", fontWeight: 700, fontSize: 13 }}>Weight (g)</th>
               </tr>
             </thead>
             <tbody>
-              {filteredItems.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    {item.image_url ? (
+              {filtered.map((item) => (
+                <tr key={item.id} style={{ borderBottom: "1px solid #e5e5e5" }}>
+                  <td style={{ padding: 12 }}>
+                    {item.image_url || item.products?.image_url ? (
                       <img
-                        src={item.image_url}
-                        className="thumb"
+                        src={item.image_url || item.products?.image_url || ""}
                         alt=""
-                        style={{ cursor: "pointer" }}
-                        onClick={() => setImageModal(item.image_url)}
+                        onClick={() => setModalImage(item.image_url || item.products?.image_url || "")}
+                        style={{ 
+                          width: 50, 
+                          height: 50, 
+                          objectFit: "cover", 
+                          borderRadius: 6,
+                          cursor: "pointer"
+                        }}
                       />
                     ) : (
-                      <div className="thumb placeholder">—</div>
+                      <div style={{ width: 50, height: 50, background: "#f5f5f5", borderRadius: 6 }} />
                     )}
                   </td>
-                  <td style={{ minWidth: 100 }}>{item.sold_date}</td>
-                  <td style={{ minWidth: 180 }}>{item.product_name}</td>
-                  <td style={{ minWidth: 120 }}>{item.category_name}</td>
-                  <td style={{ minWidth: 120 }}>{item.subcategory_name}</td>
-                  <td style={{ textAlign: "right", minWidth: 100 }}>
-                    {item.weight ? item.weight.toFixed(3) : "-"}
+                  <td style={{ padding: 12 }}>
+                    <div style={{ fontWeight: 700, color: "#8B6F47" }}>#{item.id}</div>
+                    <div style={{ fontSize: 11, color: "#999" }}>Item #{item.id}</div>
                   </td>
-                  <td style={{ minWidth: 150 }}>{item.customer_name}</td>
-                  <td style={{ minWidth: 180 }}>{item.customer_email}</td>
-                  <td style={{ minWidth: 150 }}>{item.customer_location}</td>
-                  <td style={{ textAlign: "right", minWidth: 100 }}>
-                    {item.customer_balance.toFixed(3)}
+                  <td style={{ padding: 12, fontSize: 13 }}>
+                    {item.sold_at ? new Date(item.sold_at).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric"
+                    }) + ", " + new Date(item.sold_at).toLocaleTimeString("en-IN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true
+                    }) : "-"}
+                  </td>
+                  <td style={{ padding: 12 }}>
+                    <div style={{ fontWeight: 600 }}>{item.profiles?.full_name ?? "-"}</div>
+                    <div style={{ fontSize: 12, color: "#666" }}>{item.profiles?.phone ?? ""}</div>
+                  </td>
+                  <td style={{ padding: 12, fontSize: 13 }}>
+                    {item.profiles?.city && item.profiles?.state
+                      ? `${item.profiles.city}, ${item.profiles.state}`
+                      : "-"}
+                  </td>
+                  <td style={{ padding: 12, fontSize: 13 }}>
+                    {item.products?.categories?.name ?? "-"}
+                  </td>
+                  <td style={{ padding: 12, fontSize: 13 }}>
+                    {item.products?.subcategories?.name ?? "-"}
+                  </td>
+                  <td style={{ padding: 12, textAlign: "right", fontWeight: 600, color: "#8B6F47" }}>
+                    {item.weight != null ? Number(item.weight).toFixed(3) : "-"}
                   </td>
                 </tr>
               ))}
-              {filteredItems.length === 0 && (
+              {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: "center", padding: 20 }}>
-                    No sold items found
+                  <td colSpan={8} style={{ textAlign: "center", padding: 40, color: "#999" }}>
+                    No sold items found.
                   </td>
                 </tr>
               )}
@@ -436,34 +356,63 @@ export function SoldItems() {
       )}
 
       {/* Image Modal */}
-      {imageModal && (
-        <div className="modal-overlay" onClick={() => setImageModal(null)}>
+      {modalImage && (
+        <div
+          onClick={() => setModalImage(null)}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            cursor: "pointer"
+          }}
+        >
           <div
-            className="modal-body"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "90vw", maxHeight: "90vh" }}
+            style={{
+              position: "relative",
+              maxWidth: "90vw",
+              maxHeight: "90vh",
+              cursor: "default"
+            }}
           >
-            <img
-              src={imageModal}
-              alt=""
+            <button
+              onClick={() => setModalImage(null)}
               style={{
-                width: "100%",
-                height: "auto",
-                maxHeight: "80vh",
-                objectFit: "contain",
-              }}
-            />
-            <div
-              style={{
-                marginTop: 8,
+                position: "absolute",
+                top: -40,
+                right: 0,
+                background: "white",
+                border: "none",
+                borderRadius: "50%",
+                width: 36,
+                height: 36,
+                cursor: "pointer",
+                fontSize: 20,
+                fontWeight: 700,
                 display: "flex",
-                justifyContent: "flex-end",
+                alignItems: "center",
+                justifyContent: "center"
               }}
             >
-              <button className="btn" onClick={() => setImageModal(null)}>
-                Close
-              </button>
-            </div>
+              ×
+            </button>
+            <img
+              src={modalImage}
+              alt="Full size"
+              style={{
+                maxWidth: "90vw",
+                maxHeight: "90vh",
+                objectFit: "contain",
+                borderRadius: 8
+              }}
+            />
           </div>
         </div>
       )}

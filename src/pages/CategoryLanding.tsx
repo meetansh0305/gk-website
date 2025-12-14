@@ -44,34 +44,104 @@ export default function CategoryLanding() {
     })();
   }, [categoryId]);
 
+  const bannerUrl = cat?.banner_url ?? "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=1600&auto=format&fit=crop";
+
   return (
     <div>
+      {/* Premium Category Banner */}
       <div
         style={{
           width: "100%",
           height: 320,
-          background: `url('${cat?.banner_url ?? "https://images.unsplash.com/photo-1543294001-f7cd5d7fb516?q=80&w=1600&auto=format&fit=crop"}') center/cover no-repeat`,
-          display: "flex",
-          alignItems: "center",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
-        <div style={{ marginLeft: "6%", background: "rgba(255,255,255,.9)", padding: "12px 16px", borderRadius: 12, fontWeight: 800 }}>
-          Fine {cat?.name} Jewellery
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `url('${bannerUrl}') center/cover no-repeat`,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "linear-gradient(135deg, rgba(7, 30, 51, 0.6) 0%, rgba(7, 30, 51, 0.2) 100%)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            left: "6%",
+            bottom: 40,
+            zIndex: 1,
+          }}
+        >
+          <p style={{ color: "#d4af37", fontSize: 12, letterSpacing: 2, marginBottom: 8, fontWeight: 500 }}>
+            COLLECTION
+          </p>
+          <h1
+            style={{
+              color: "#fff",
+              fontSize: 40,
+              fontWeight: 700,
+              margin: 0,
+              fontFamily: "'Playfair Display', Georgia, serif",
+              textShadow: "0 2px 20px rgba(0,0,0,0.3)",
+            }}
+          >
+            Fine {cat?.name} Jewellery
+          </h1>
         </div>
       </div>
 
       <div className="container">
-        <h2 className="section-title">Explore {cat?.name}</h2>
+        <h2 className="section-title" style={{ marginTop: 28 }}>
+          Explore {cat?.name}
+        </h2>
         <div className="grid">
           {subs.map((s) => (
-            <div key={s.id} className="card" style={{ cursor: "pointer", textAlign: "center" }} onClick={() => navigate(`/subcategory/${s.id}`)}>
-              <div className="image-wrap">
-                <img className="product" src={s.preview_url ?? "https://images.unsplash.com/photo-1606313564200-e75d5e30476e?q=80&w=1200&auto=format&fit=crop"} alt={s.name}/>
+            <div 
+              key={s.id} 
+              className="card" 
+              style={{ 
+                cursor: "pointer", 
+                textAlign: "center",
+                padding: 16,
+              }} 
+              onClick={() => navigate(`/subcategory/${s.id}`)}
+            >
+              <div 
+                style={{ 
+                  width: "100%",
+                  aspectRatio: "1/1",
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  marginBottom: 14,
+                  background: "#f5f5f5",
+                }}
+              >
+                <img 
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  src={s.preview_url ?? "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=1200&auto=format&fit=crop"} 
+                  alt={s.name}
+                />
               </div>
-              <div style={{ fontWeight: 700 }}>{s.name}</div>
+              <div style={{ fontWeight: 600, fontSize: 15, color: "#333", marginBottom: 4 }}>
+                {s.name}
+              </div>
+              <div style={{ fontSize: 13, color: "#b08d57", fontWeight: 500 }}>
+                Explore Collection →
+              </div>
             </div>
           ))}
-          {subs.length === 0 && <p>No subcategories yet.</p>}
+          {subs.length === 0 && (
+            <div style={{ textAlign: "center", padding: 40, color: "#666" }}>
+              No subcategories yet.
+            </div>
+          )}
         </div>
       </div>
     </div>

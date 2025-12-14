@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { Search, ShoppingBag, ClipboardList, User, LogOut, ChevronDown } from "lucide-react";
 
 type Category = { id: number; name: string };
 type Subcategory = { id: number; name: string; category_id: number };
@@ -10,6 +11,7 @@ export default function Navbar() {
   const [cats, setCats] = useState<Category[]>([]);
   const [subsByCat, setSubsByCat] = useState<Record<number, Subcategory[]>>({});
   const [q, setQ] = useState("");
+  const [hoveredCat, setHoveredCat] = useState<number | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export default function Navbar() {
 
     if (subMatch && subMatch.length) {
       navigate(`/subcategory/${subMatch[0].id}`);
+      setQ("");
       return;
     }
 
@@ -62,85 +65,200 @@ export default function Navbar() {
 
     if (catMatch && catMatch.length) {
       navigate(`/category/${catMatch[0].id}`);
+      setQ("");
       return;
     }
 
-    alert("No matching category/sub-category found.");
+    alert("No matching category or subcategory found.");
   };
 
   return (
-    <header style={{ position: "sticky", top: 0, zIndex: 100, background: "#fff" }}>
-      {/* TOP BAR */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "10px 16px",
-          borderBottom: "1px solid #eee",
-          gap: 20,
-        }}
-      >
-        {/* LOGO + TEXT*/}
-        <div
-          style={{ cursor: "pointer", display: "flex", alignItems: "center" }}
-          onClick={() => navigate("/")}
-        >
-          <img
-            src="/logo.png"
-            alt="GK Logo"
-            style={{ height: 60, width: "auto", marginRight: 8 }}
-          />
-          <div
-        style={{
-          fontSize: 24,
-          fontWeight: 900,
-          color: "#C6A150",
-          letterSpacing: 1,
-          marginTop: 4,
-        }}
-      >
-        Gurukrupa Jewellers
-      </div>
-    </div>
+    <nav style={{ 
+      background: "#fff", 
+      borderBottom: "1px solid #e8e4dc",
+      position: "sticky",
+      top: 0,
+      zIndex: 100
+    }}>
+      <div style={{ 
+        maxWidth: 1200, 
+        margin: "0 auto", 
+        padding: "12px 24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 32
+      }}>
+        {/* Logo */}
+        <NavLink to="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
+          <img src="/logo.png" alt="GK" style={{ height: 40 }} />
+          <div>
+            <div style={{ 
+              fontSize: 20, 
+              fontWeight: 700, 
+              color: "#a67c52",
+              letterSpacing: 0.5,
+              lineHeight: 1.1
+            }}>
+              Gurukrupa Jewellers
+            </div>
+            <div style={{ 
+              fontSize: 10, 
+              color: "#999",
+              letterSpacing: 3,
+              textTransform: "uppercase"
+            }}>
+              Since 2000
+            </div>
+          </div>
+        </NavLink>
 
-        {/* SEARCH */}
-        <form
-          onSubmit={doSearch}
-          style={{ flex: 1, display: "flex", justifyContent: "center" }}
-        >
-          <input
-            placeholder="Search category or sub-category..."
-            className="input"
-            style={{ width: 500, maxWidth: "90%" }}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
+        {/* Search */}
+        <form onSubmit={doSearch} style={{ flex: 1, maxWidth: 480 }}>
+          <div style={{ 
+            display: "flex",
+            alignItems: "center",
+            background: "#f5f3ef",
+            borderRadius: 40,
+            padding: "10px 20px",
+            gap: 10,
+            border: "1px solid transparent",
+            transition: "border-color 0.2s"
+          }}>
+            <Search size={18} style={{ color: "#888" }} />
+            <input
+              type="text"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search categories, collections..."
+              style={{ 
+                flex: 1,
+                border: "none",
+                background: "transparent",
+                outline: "none",
+                fontSize: 14,
+                color: "#333"
+              }}
+            />
+          </div>
         </form>
 
-        {/* NAV ITEMS */}
-        <NavLink to="/cart" style={{ textDecoration: "none" }}>Cart</NavLink>
-        <NavLink to="/orders" style={{ textDecoration: "none" }}>My Orders</NavLink>
+        {/* Right Actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <NavLink 
+            to="/cart" 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              textDecoration: "none",
+              color: "#555",
+              fontSize: 14,
+              fontWeight: 500,
+              transition: "color 0.2s"
+            }}
+          >
+            <ShoppingBag size={20} />
+            <span>Cart</span>
+          </NavLink>
 
-        {userEmail ? (
-          <>
-            <NavLink to="/profile" style={{ textDecoration: "none" }}>Profile</NavLink>
-            <button className="btn" onClick={logout}>Logout</button>
-          </>
-        ) : (
-          <>
-            <NavLink to="/auth" style={{ textDecoration: "none" }}>Login</NavLink>
-            <span>|</span>
-            <NavLink to="/auth" style={{ textDecoration: "none" }}>Signup</NavLink>
-          </>
-        )}
+          <NavLink 
+            to="/orders" 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              textDecoration: "none",
+              color: "#555",
+              fontSize: 14,
+              fontWeight: 500
+            }}
+          >
+            <ClipboardList size={20} />
+            <span>Orders</span>
+          </NavLink>
+
+          <NavLink 
+            to="/profile" 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              textDecoration: "none",
+              color: "#555",
+              fontSize: 14,
+              fontWeight: 500
+            }}
+          >
+            <User size={20} />
+            <span>Profile</span>
+          </NavLink>
+
+          {userEmail ? (
+            <button
+              onClick={logout}
+              style={{ 
+                background: "#a67c52",
+                color: "#fff",
+                border: "none",
+                padding: "10px 20px",
+                borderRadius: 24,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                transition: "background 0.2s"
+              }}
+            >
+              <LogOut size={16} />
+              Logout
+            </button>
+          ) : (
+            <NavLink
+              to="/auth"
+              style={{
+                background: "#a67c52",
+                color: "#fff",
+                textDecoration: "none",
+                padding: "10px 24px",
+                borderRadius: 24,
+                fontSize: 13,
+                fontWeight: 600
+              }}
+            >
+              Login
+            </NavLink>
+          )}
+        </div>
       </div>
 
-      {/* CATEGORY BAR */}
-      <div style={{ background: "#071E33", color: "#fff", padding: "10px 16px" }}>
-        <nav style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
-          <NavLink to="/" style={{ color: "#fff", textDecoration: "none" }}>Home</NavLink>
-          <NavLink to="/live" style={{ color: "#fff", textDecoration: "none" }}>Live Stock</NavLink>
-          <NavLink to="/products" style={{ color: "#fff", textDecoration: "none" }}>
+      {/* Category Navigation */}
+      <div style={{ 
+        background: "#faf9f7", 
+        borderTop: "1px solid #f0ece4",
+        padding: "0 24px"
+      }}>
+        <div style={{ 
+          maxWidth: 1200, 
+          margin: "0 auto",
+          display: "flex",
+          gap: 8
+        }}>
+          <NavLink
+            to="/products"
+            style={{
+              padding: "12px 18px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#555",
+              textDecoration: "none",
+              letterSpacing: 0.5,
+              transition: "color 0.2s",
+              borderBottom: "2px solid transparent"
+            }}
+          >
             All Products
           </NavLink>
 
@@ -148,55 +266,70 @@ export default function Navbar() {
             <div
               key={cat.id}
               style={{ position: "relative" }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget.querySelector(".dropdown") as HTMLElement;
-                if (el) el.style.display = "grid";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget.querySelector(".dropdown") as HTMLElement;
-                if (el) el.style.display = "none";
-              }}
+              onMouseEnter={() => setHoveredCat(cat.id)}
+              onMouseLeave={() => setHoveredCat(null)}
             >
-              <button className="btn linklike" onClick={() => navigate(`/category/${cat.id}`)}>
-                {cat.name} ▾
-              </button>
-
               <div
-                className="dropdown"
+                onClick={() => navigate(`/category/${cat.id}`)}
                 style={{
-                  display: "none",
-                  position: "absolute",
-                  background: "#fff",
-                  color: "#000",
-                  padding: 12,
-                  borderRadius: 10,
-                  boxShadow: "0 6px 24px rgba(0,0,0,.15)",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 6,
-                  minWidth: 180,
-                  top: "100%",
-                  left: 0,
-                  zIndex: 200,
+                  padding: "12px 18px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#555",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  letterSpacing: 0.5,
+                  transition: "color 0.2s",
+                  borderBottom: hoveredCat === cat.id ? "2px solid #a67c52" : "2px solid transparent"
                 }}
               >
-                {(subsByCat[cat.id] ?? []).map((sc) => (
-                  <div
-                    key={sc.id}
-                    onClick={() => navigate(`/subcategory/${sc.id}`)}
-                    style={{
-                      padding: "6px 10px",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {sc.name}
-                  </div>
-                ))}
+                {cat.name}
+                {subsByCat[cat.id]?.length > 0 && <ChevronDown size={14} />}
               </div>
+
+              {/* Dropdown */}
+              {hoveredCat === cat.id && subsByCat[cat.id]?.length > 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    background: "#fff",
+                    minWidth: 200,
+                    boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+                    borderRadius: 12,
+                    padding: "8px 0",
+                    zIndex: 50
+                  }}
+                >
+                  {subsByCat[cat.id].map((sub) => (
+                    <div
+                      key={sub.id}
+                      onClick={() => {
+                        navigate(`/subcategory/${sub.id}`);
+                        setHoveredCat(null);
+                      }}
+                      style={{
+                        padding: "10px 20px",
+                        fontSize: 13,
+                        color: "#444",
+                        cursor: "pointer",
+                        transition: "background 0.15s"
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f3ef")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      {sub.name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
-        </nav>
+        </div>
       </div>
-    </header>
+    </nav>
   );
 }
