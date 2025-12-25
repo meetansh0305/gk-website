@@ -46,6 +46,15 @@ body {
   padding: 16px;
   box-shadow: var(--shadow-soft);
   transition: var(--transition);
+  margin-bottom: 16px;
+  display: block;
+  position: relative;
+  clear: both;
+  overflow: visible;
+}
+
+.card + .card {
+  margin-top: 0;
 }
 
 .card:hover {
@@ -230,6 +239,7 @@ img.product {
   align-items: start;
 }
 
+/* Mobile Responsiveness */
 @media (max-width: 768px) {
   .page-layout {
     grid-template-columns: 1fr;
@@ -239,4 +249,384 @@ img.product {
     position: relative;
     top: 0;
   }
+
+  .container {
+    width: 95%;
+    margin: 16px auto;
+    padding: 0 12px;
+  }
+
+  .section-title {
+    font-size: 22px;
+    margin: 16px 0;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .btn {
+    padding: 12px 16px;
+    font-size: 14px;
+    min-height: 44px; /* Touch-friendly */
+    width: 100%;
+  }
+
+  .input {
+    padding: 12px 14px;
+    font-size: 16px; /* Prevents zoom on iOS */
+    min-height: 44px; /* Touch-friendly */
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  select.input {
+    padding: 12px 14px;
+    font-size: 16px;
+    min-height: 44px;
+  }
+
+  /* Form improvements */
+  label {
+    font-size: 13px !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Grid improvements */
+  [style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Navbar mobile */
+  nav > div > div {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 8px 12px;
+  }
+
+  nav form {
+    order: 3;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 8px;
+  }
+
+  /* Category navigation mobile */
+  nav > div:last-child {
+    padding: 8px 12px !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  nav > div:last-child > div {
+    min-width: max-content;
+  }
+
+  /* Admin tabs mobile */
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+  }
+
+  .tabs .tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Tables mobile */
+  table {
+    font-size: 13px;
+  }
+
+  table th,
+  table td {
+    padding: 8px !important;
+    font-size: 12px;
+  }
+
+  /* Hide text labels on mobile, show icons only */
+  @media (max-width: 480px) {
+    nav a span:not(:first-child),
+    nav button span:not(:first-child) {
+      display: none;
+    }
+
+    nav a,
+    nav button {
+      padding: 8px 12px;
+      min-width: 44px;
+    }
+
+    .container {
+      width: 98%;
+      padding: 0 8px;
+    }
+
+    .card {
+      padding: 12px;
+    }
+
+    h1, h2, h3 {
+      font-size: 20px !important;
+    }
+
+    /* Logo text smaller on very small screens */
+    nav img[alt="GK"] {
+      height: 32px !important;
+    }
+
+    nav > div > div > a > div > div:first-child {
+      font-size: 16px !important;
+    }
+
+    nav > div > div > a > div > div:last-child {
+      font-size: 8px !important;
+    }
+  }
+}
+
+/* Touch-friendly buttons */
+@media (hover: none) and (pointer: coarse) {
+  .btn,
+  button,
+  a.btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px 16px;
+  }
+
+  .filter-checkbox {
+    min-height: 44px;
+    padding: 12px 0;
+  }
+}
+
+/* Accessibility improvements */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Skip to main content link */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Better color contrast */
+.text-muted {
+  color: #555 !important; /* Better contrast than #666 */
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Image lazy loading */
+img[loading="lazy"] {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+img[loading="lazy"].loaded {
+  opacity: 1;
+}
+
+/* Cart layout mobile */
+@media (max-width: 968px) {
+  .cart-layout {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .cart-layout > div:last-child {
+    position: relative !important;
+    top: 0 !important;
+  }
+}
+
+/* Form label improvements */
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 8px;
+}
+
+/* Better file input styling */
+input[type="file"] {
+  padding: 12px !important;
+  cursor: pointer;
+}
+
+input[type="file"]::-webkit-file-upload-button {
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  margin-right: 12px;
+}
+
+input[type="file"]::-webkit-file-upload-button:hover {
+  background: var(--accent-dark);
+}
+
+/* Better checkbox styling */
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+/* Table improvements for mobile */
+@media (max-width: 768px) {
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  table thead {
+    display: none;
+  }
+  
+  table tbody tr {
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  
+  table tbody td {
+    display: block;
+    text-align: right;
+    padding: 8px 0;
+    border: none;
+  }
+  
+  table tbody td:before {
+    content: attr(data-label);
+    float: left;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+}
+
+/* Better button groups */
+.btn-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-group .btn {
+  flex: 1;
+  min-width: 100px;
+}
+
+/* Modal improvements for mobile */
+@media (max-width: 768px) {
+  /* Larger close buttons on mobile */
+  button[style*="position: absolute"][style*="top: -40"] {
+    top: 10px !important;
+    right: 10px !important;
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 24px !important;
+  }
+
+  /* Better modal padding */
+  .modal-body,
+  div[style*="maxWidth: \"90vw\""],
+  div[style*="maxWidth: \"85vw\""] {
+    padding: 16px !important;
+    margin: 10px !important;
+  }
+
+  /* Ensure modals don't overflow */
+  div[style*="position: fixed"][style*="inset: 0"] {
+    padding: 10px !important;
+  }
+}
+
+/* Improved card spacing */
+.card {
+  margin-bottom: 16px;
+}
+
+/* Better input focus states */
+.input:focus,
+select.input:focus,
+textarea.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(176, 141, 87, 0.15);
+}
+
+/* Disabled state improvements */
+.input:disabled,
+select.input:disabled,
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Better spacing for form sections */
+.form-section {
+  margin-bottom: 24px;
+}
+
+.form-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Prevent table overlapping */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  table-layout: auto;
+}
+
+/* Ensure proper spacing between sections */
+.container > div,
+.container > section {
+  margin-bottom: 24px;
+}
+
+.container > div:last-child,
+.container > section:last-child {
+  margin-bottom: 0;
 }

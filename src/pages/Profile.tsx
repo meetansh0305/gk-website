@@ -9,6 +9,8 @@ export default function Profile() {
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [phone, setPhone] = useState("");
+  const [firmName, setFirmName] = useState("");
+  const [businessType, setBusinessType] = useState<"wholesale" | "retail" | "manufacturer" | "">("");
 
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -32,6 +34,8 @@ export default function Profile() {
           setCity(p.city || "");
           setState(p.state || "");
           setPhone(p.phone || "");
+          setFirmName((p as any).firm_name || "");
+          setBusinessType((p as any).business_type || "");
         }
       }
 
@@ -51,7 +55,9 @@ export default function Profile() {
         state,
         city,
         phone,
-      })
+        firm_name: firmName || null,
+        business_type: businessType || null,
+      } as any)
       .eq("id", user.id);
 
     setSaving(false);
@@ -129,6 +135,18 @@ export default function Profile() {
             <strong>State:</strong> {profile?.state || "-"}
           </div>
 
+          {(profile as any)?.firm_name && (
+            <div style={{ marginBottom: 10 }}>
+              <strong>Firm Name:</strong> {(profile as any).firm_name || "-"}
+            </div>
+          )}
+
+          {(profile as any)?.business_type && (
+            <div style={{ marginBottom: 10 }}>
+              <strong>Business Type:</strong> {String((profile as any).business_type || "-").charAt(0).toUpperCase() + String((profile as any).business_type || "").slice(1)}
+            </div>
+          )}
+
           <button className="btn" style={{ marginTop: 10 }} onClick={() => setEditMode(true)}>
             Edit Profile
           </button>
@@ -137,49 +155,127 @@ export default function Profile() {
 
       {/* ➤ EDIT MODE FORM */}
       {editMode && (
-        <div className="card" style={{ maxWidth: 420 }}>
-          <label>Email</label>
-          <input className="input" value={user.email} disabled />
+        <div className="card" style={{ maxWidth: 600, padding: 24 }}>
+          <h3 style={{ margin: "0 0 24px 0", color: "var(--accent-dark)", fontWeight: 700 }}>Edit Profile</h3>
+          
+          <div style={{ display: "grid", gap: 20 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dark)", marginBottom: 8 }}>
+                Email
+              </label>
+              <input 
+                className="input" 
+                value={user.email} 
+                disabled
+                aria-label="Email address"
+              />
+            </div>
 
-          <label>Full Name</label>
-          <input
-            className="input"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-          />
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dark)", marginBottom: 8 }}>
+                Full Name
+              </label>
+              <input
+                className="input"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Enter your full name"
+                aria-label="Full name"
+              />
+            </div>
 
-          <label>Phone</label>
-          <input
-            className="input"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dark)", marginBottom: 8 }}>
+                Phone
+              </label>
+              <input
+                className="input"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+91 1234567890"
+                aria-label="Phone number"
+              />
+            </div>
 
-          <label>City</label>
-          <input
-            className="input"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-          />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 20 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dark)", marginBottom: 8 }}>
+                  City
+                </label>
+                <input
+                  className="input"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="Enter city"
+                  aria-label="City"
+                />
+              </div>
 
-          <label>State</label>
-          <input
-            className="input"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-          />
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dark)", marginBottom: 8 }}>
+                  State
+                </label>
+                <input
+                  className="input"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  placeholder="Enter state"
+                  aria-label="State"
+                />
+              </div>
+            </div>
 
-          <button className="btn" disabled={saving} onClick={save} style={{ marginTop: 10 }}>
-            {saving ? "Saving..." : "Save"}
-          </button>
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dark)", marginBottom: 8 }}>
+                Firm Name <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>(Optional)</span>
+              </label>
+              <input
+                className="input"
+                value={firmName}
+                onChange={(e) => setFirmName(e.target.value)}
+                placeholder="Enter your firm/business name"
+                aria-label="Firm name"
+              />
+            </div>
 
-          <button
-            className="btn"
-            style={{ marginTop: 10, background: "#ccc", color: "black" }}
-            onClick={() => setEditMode(false)}
-          >
-            Cancel
-          </button>
+            <div>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-dark)", marginBottom: 8 }}>
+                Business Type <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>(Optional)</span>
+              </label>
+              <select
+                className="input"
+                value={businessType}
+                onChange={(e) => setBusinessType(e.target.value as any)}
+                aria-label="Business type"
+              >
+                <option value="">Select Business Type</option>
+                <option value="wholesale">Wholesale</option>
+                <option value="retail">Retail</option>
+                <option value="manufacturer">Manufacturer</option>
+              </select>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+              <button 
+                className="btn primary" 
+                disabled={saving} 
+                onClick={save} 
+                style={{ minHeight: 44, minWidth: 120 }}
+                aria-label="Save profile"
+              >
+                {saving ? "Saving..." : "Save Changes"}
+              </button>
+              <button
+                className="btn"
+                style={{ minHeight: 44, minWidth: 100 }}
+                onClick={() => setEditMode(false)}
+                aria-label="Cancel editing"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

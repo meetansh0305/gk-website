@@ -2,6 +2,30 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
+function downloadCsv(filename: string, rows: Array<Array<string | number | null>>) {
+  const csv = rows
+    .map((r) =>
+      r
+        .map((cell) => {
+          if (cell == null) return "";
+          const s = String(cell).replace(/"/g, '""');
+          if (s.search(/,|\n|"/) >= 0) return `"${s}"`;
+          return s;
+        })
+        .join(",")
+    )
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.setAttribute("download", filename);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 type SoldItem = {
   id: number;
   weight: number | null;
@@ -140,14 +164,35 @@ export default function SoldItems() {
     return true;
   });
 
+  const exportCsv = () => {
+    const out: Array<Array<string | number | null>> = [
+      ["Item ID", "Product Name", "Weight (g)", "Category", "Subcategory", "Customer", "Phone", "City", "State", "Sold Date"],
+    ];
+    filtered.forEach((item) => {
+      out.push([
+        item.id,
+        item.products?.name ?? "",
+        item.weight != null ? Number(item.weight).toFixed(3) : "",
+        item.products?.categories?.name ?? "",
+        item.products?.subcategories?.name ?? "",
+        item.profiles?.full_name ?? "",
+        item.profiles?.phone ?? "",
+        item.profiles?.city ?? "",
+        item.profiles?.state ?? "",
+        item.sold_at ? new Date(item.sold_at).toLocaleString() : "",
+      ]);
+    });
+    downloadCsv(`sold-items-${new Date().toISOString().slice(0, 10)}.csv`, out);
+  };
+
   return (
-    <div style={{ padding: 20 }}>
-      <h2 style={{ margin: "0 0 20px 0", fontSize: 28, fontWeight: 700, color: "#8B6F47" }}>
+    <div>
+      <h2 className="section-title" style={{ color: "var(--accent-dark)", marginBottom: 20 }}>
         Sold Items
       </h2>
 
       {/* Filters */}
-      <div style={{ background: "white", padding: 20, borderRadius: 8, marginBottom: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+      <div className="card" style={{ marginBottom: 20, padding: 24 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 12 }}>
           <select
             value={categoryFilter}
@@ -161,9 +206,9 @@ export default function SoldItems() {
           </select>
 
           <select
+            className="input"
             value={subcategoryFilter}
             onChange={(e) => setSubcategoryFilter(e.target.value)}
-            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
           >
             <option value="all">Subcategory: All</option>
             {subcategories.map(sub => (
@@ -172,9 +217,9 @@ export default function SoldItems() {
           </select>
 
           <select
+            className="input"
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
-            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
           >
             <option value="all">Customer: All</option>
             {customers.map(cust => (
@@ -183,9 +228,9 @@ export default function SoldItems() {
           </select>
 
           <select
+            className="input"
             value={cityFilter}
             onChange={(e) => setCityFilter(e.target.value)}
-            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
           >
             <option value="all">City: All</option>
             {cities.map(city => (
@@ -194,9 +239,9 @@ export default function SoldItems() {
           </select>
 
           <select
+            className="input"
             value={stateFilter}
             onChange={(e) => setStateFilter(e.target.value)}
-            style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", background: "white" }}
           >
             <option value="all">State: All</option>
             {states.map(state => (
@@ -205,65 +250,73 @@ export default function SoldItems() {
           </select>
         </div>
 
-        <input
-          type="text"
-          placeholder="Search product/customer/email..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ 
-            width: "100%", 
-            padding: "10px 12px", 
-            borderRadius: 6, 
-            border: "1px solid #ddd",
-            marginBottom: 12,
-            fontSize: 14
-          }}
-        />
-
-        <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd" }}
-          />
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd" }}
-          />
-        </div>
-
-        <div style={{ display: "flex", gap: 12 }}>
-          <button
-            onClick={load}
-            style={{
-              padding: "8px 20px",
-              background: "#8B6F47",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontWeight: 600
-            }}
-          >
-            Refresh
-          </button>
-          <button
-            onClick={handleClear}
-            style={{
-              padding: "8px 20px",
-              background: "white",
-              color: "#333",
-              border: "1px solid #ddd",
-              borderRadius: 6,
-              cursor: "pointer",
-              fontWeight: 600
-            }}
-          >
-            Clear
-          </button>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginTop: 20 }}>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-dark)", marginBottom: 6 }}>
+              Search
+            </label>
+            <input
+              type="text"
+              placeholder="Search product/customer/email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="input"
+              style={{ width: "100%" }}
+              aria-label="Search sold items"
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-dark)", marginBottom: 6 }}>
+              Date From
+            </label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="input"
+              style={{ width: "100%" }}
+              aria-label="Filter from date"
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-dark)", marginBottom: 6 }}>
+              Date To
+            </label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="input"
+              style={{ width: "100%" }}
+              aria-label="Filter to date"
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "end" }}>
+            <button
+              className="btn primary"
+              onClick={load}
+              style={{ flex: 1, minHeight: 44 }}
+              aria-label="Refresh data"
+            >
+              Refresh
+            </button>
+            <button
+              className="btn"
+              onClick={handleClear}
+              style={{ flex: 1, minHeight: 44 }}
+              aria-label="Clear filters"
+            >
+              Clear
+            </button>
+            <button
+              className="btn"
+              onClick={exportCsv}
+              style={{ background: "var(--accent)", borderColor: "var(--accent)", color: "#fff", flex: 1, minHeight: 44 }}
+              aria-label="Export to CSV"
+            >
+              Export CSV
+            </button>
+          </div>
         </div>
       </div>
 
@@ -273,7 +326,7 @@ export default function SoldItems() {
           Loading...
         </div>
       ) : (
-        <div style={{ overflowX: "auto", background: "white", borderRadius: 8, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+        <div className="card" style={{ marginTop: 24, marginBottom: 24, padding: 0, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f9f7f4", borderBottom: "2px solid #e5e5e5" }}>

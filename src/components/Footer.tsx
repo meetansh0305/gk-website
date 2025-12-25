@@ -1,4 +1,5 @@
 import { MapPin, Phone, Mail, Globe, Clock, Gem } from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 export default function Footer() {
   return (
@@ -13,7 +14,7 @@ export default function Footer() {
         margin: "0 auto", 
         padding: "48px 24px 32px",
         display: "grid", 
-        gridTemplateColumns: "1fr 1.2fr 1fr", 
+        gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
         gap: 48 
       }}>
         
@@ -53,6 +54,34 @@ export default function Footer() {
               </span>
             </div>
             
+            <NavLink 
+              to="/contact"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                marginTop: 8,
+                padding: "10px 16px",
+                background: "#a67c52",
+                color: "#fff",
+                borderRadius: 8,
+                textDecoration: "none",
+                fontSize: 13,
+                fontWeight: 600,
+                transition: "background 0.2s",
+                width: "fit-content"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#8b6914";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#a67c52";
+              }}
+            >
+              <Mail size={16} />
+              Send us a Message
+            </NavLink>
+            
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <Globe size={18} style={{ color: "#a67c52" }} />
               <span style={{ fontSize: 14, color: "#555" }}>
@@ -77,18 +106,58 @@ export default function Footer() {
           <div style={{ 
             borderRadius: 16, 
             overflow: "hidden",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.1)"
+            boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+            position: "relative",
+            background: "#f5f5f5",
+            minHeight: 220
           }}>
-            <iframe
-              title="store-map"
-              width="100%"
-              height="220"
-              style={{ border: 0, display: "block" }}
-              loading="lazy"
-              allowFullScreen
-              referrerPolicy="no-referrer-when-downgrade"
-              src="https://www.google.com/maps/embed?pb=!1m18!..."
-            />
+            <a
+              href="https://maps.app.goo.gl/R4rWtDXH586TB27s6"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "block",
+                width: "100%",
+                height: "220px",
+                background: "linear-gradient(135deg, #f5f3ef 0%, #ebe7df 100%)",
+                textDecoration: "none",
+                color: "#555",
+                position: "relative",
+                overflow: "hidden"
+              }}
+              aria-label="View store location on Google Maps"
+            >
+              <div style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "20px",
+                textAlign: "center"
+              }}>
+                <MapPin size={40} style={{ color: "#a67c52", marginBottom: 16 }} />
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: "#a67c52" }}>
+                  View Store Location
+                </div>
+                <div style={{ fontSize: 13, color: "#777", lineHeight: 1.6 }}>
+                  #51, 2nd Floor, Krishna Niwas<br />
+                  Dhanji Street, Mumbai 400 002
+                </div>
+                <div style={{
+                  marginTop: 16,
+                  padding: "8px 16px",
+                  background: "#a67c52",
+                  color: "#fff",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>
+                  Click to Open in Google Maps →
+                </div>
+              </div>
+            </a>
           </div>
         </div>
 

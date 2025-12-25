@@ -10,47 +10,60 @@ import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import AuthPage from "./pages/Auth";
+import Wishlist from "./pages/Wishlist";
+import Contact from "./pages/Contact";
+import { WishlistProvider } from "./state/WishlistContext";
 
 // NEW
 import CategoryLanding from "./pages/CategoryLanding";
 import SubcategoryPage from "./pages/SubcategoryPage";
 import AllProducts from "./pages/AllProducts";
 
+// ✅ IMPORT CSS
+import "./index.css";
+
 export default function App() {
   return (
     <BrowserRouter>
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-        <Navbar />
-        <div style={{ flex: 1 }}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/live" element={<LiveStock />} />
+      <WishlistProvider>
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+          <Navbar />
+          <main id="main-content" style={{ flex: 1 }}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/live" element={<LiveStock />} />
 
-            {/* Categories */}
-            <Route path="/categories" element={<Categories />} />
+              {/* Categories */}
+              <Route path="/categories" element={<Categories />} />
 
-            {/* Category landing */}
-            <Route path="/category/:categoryId" element={<CategoryLanding />} />
+              {/* Category landing */}
+              <Route path="/category/:categoryId" element={<CategoryLanding />} />
 
-            {/* Subcategory landing */}
-            <Route path="/subcategory/:subcategoryId" element={<SubcategoryPage />} />
+              {/* Subcategory landing */}
+              <Route path="/subcategory/:subcategoryId" element={<SubcategoryPage />} />
 
-            {/* All products */}
-            <Route path="/products" element={<AllProducts />} />
+              {/* All products */}
+              <Route path="/products" element={<AllProducts />} />
 
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/auth" element={<AuthPage />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/orders" element={<Orders />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/wishlist" element={<Wishlist />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/auth" element={<AuthPage />} />
 
-            {/* Admin */}
-            <Route path="/admin" element={<Admin />} />
+              {/* Admin */}
+              <Route path="/admin" element={<Admin />} />
 
-            <Route path="*" element={<Home />} />
-          </Routes>
+              <Route path="*" element={<Home />} />
+            </Routes>
+          </main>
+          <Footer />
         </div>
-        <Footer />
-      </div>
+      </WishlistProvider>
     </BrowserRouter>
   );
 }

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "../state/CartContext";
 import { supabase } from "../lib/supabaseClient";
+import { handleSupabaseError, showError, showSuccess } from "../utils/errorHandler";
 
 export default function CartPage() {
   const { lines, setQty, remove, clear, totalItems } = useCart();
@@ -18,20 +19,20 @@ export default function CartPage() {
       const { data: authData } = await supabase.auth.getUser();
       const user = authData?.user;
       if (!user) {
-        alert("Please login or signup to place an order.");
+        showError("Please login or signup to place an order.", "Authentication Required");
         setLoading(false);
         return;
       }
 
-      const { data: profile, error: profErr } = await supabase
+      const { data: profile, error: profErr } = await (supabase
         .from("profiles")
         .select("full_name, state, city, phone")
         .eq("id", user.id)
-        .single();
+        .single() as unknown as Promise<{ data: { full_name: string | null; state: string | null; city: string | null; phone: string | null } | null; error: any }>);
 
       if (profErr) {
         console.error("Profile fetch error", profErr);
-        alert("Error fetching profile. Check console.");
+        showError(handleSupabaseError(profErr), "Profile Error");
         setLoading(false);
         return;
       }
@@ -48,15 +49,28 @@ export default function CartPage() {
         return;
       }
 
-      const { data: newOrder, error: orderErr } = await supabase
+      // Calculate total weight
+      const totalWeight = lines.reduce((sum, l) => {
+        const itemWeight = (l.product.weight ?? 0) * l.quantity;
+        return sum + itemWeight;
+      }, 0);
+
+      const { data: newOrder, error: orderErr } = await (supabase
         .from("orders")
-        .insert({ user_id: user.id, status: "in_progress" })
+        .insert({ 
+          user_id: user.id, 
+          status: "in_progress",
+          total_weight: totalWeight
+        } as any)
         .select()
-        .single();
+        .single() as unknown as Promise<{ data: { id: number } | null; error: any }>);
 
       if (orderErr || !newOrder) {
         console.error("Order creation error", orderErr);
-        alert("❌ Order failed (order creation). Check console for details.");
+        showError(
+          orderErr ? handleSupabaseError(orderErr) : "Failed to create order",
+          "Order Failed"
+        );
         setLoading(false);
         return;
       }
@@ -69,19 +83,33 @@ export default function CartPage() {
         price_at_purchase: null,
       }));
 
-      const { error: itemsErr } = await supabase.from("order_items").insert(itemsPayload);
+      const { error: itemsErr } = await (supabase.from("order_items").insert(itemsPayload as any) as unknown as Promise<{ error: any }>);
       if (itemsErr) {
         console.error("Order items insert error", itemsErr);
-        alert("❌ Order failed (items). Check console for details.");
+        showError(handleSupabaseError(itemsErr), "Order Failed");
         setLoading(false);
         return;
       }
 
+      // Send order confirmation email (if email service is set up)
+      try {
+        const { sendOrderConfirmation } = await import("../utils/emailNotifications");
+        const itemsForEmail = lines.map(l => ({
+          name: `Product #${l.product.id}`,
+          quantity: l.quantity,
+          weight: l.product.weight ?? 0
+        }));
+        await sendOrderConfirmation(user.email || "", newOrder.id, new Date().toISOString(), itemsForEmail, totalWeight);
+      } catch (e) {
+        // Email service not set up yet - that's okay
+        console.log("Email notification skipped (service not configured)");
+      }
+
       clear();
-      alert("✅ Order placed successfully!");
-    } catch (e) {
+      showSuccess("Order placed successfully!", "Order Confirmed");
+    } catch (e: any) {
       console.error("Place order unexpected error", e);
-      alert("Unexpected error during order. Check console.");
+      showError(handleSupabaseError(e), "Unexpected Error");
     } finally {
       setLoading(false);
     }
@@ -173,7 +201,9 @@ export default function CartPage() {
         gridTemplateColumns: "1fr 400px",
         gap: 40,
         alignItems: "start"
-      }}>
+      }}
+      className="cart-layout"
+      >
         {/* Cart Items */}
         <div style={{ display: "grid", gap: 1 }}>
           {lines.map((l) => (
@@ -237,18 +267,24 @@ export default function CartPage() {
                   <button 
                     onClick={() => setQty(l.product.id, Math.max(1, l.quantity - 1))}
                     style={{
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
+                      minWidth: 44,
+                      minHeight: 44,
                       padding: 0,
                       border: "1px solid #e8e8e8",
                       background: "#fff",
                       cursor: "pointer",
-                      fontSize: 16,
+                      fontSize: 18,
                       color: "#666",
-                      transition: "all 0.2s ease"
+                      transition: "all 0.2s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = "#fafafa"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}
+                    aria-label="Decrease quantity"
                   >
                     −
                   </button>
@@ -258,32 +294,41 @@ export default function CartPage() {
                     value={l.quantity} 
                     onChange={(e) => setQty(l.product.id, Math.max(1, Number(e.target.value) || 1))} 
                     style={{ 
-                      width: 60,
-                      height: 40,
+                      width: 70,
+                      minWidth: 70,
+                      height: 44,
+                      minHeight: 44,
                       textAlign: "center",
                       border: "1px solid #e8e8e8",
                       borderLeft: "none",
                       borderRight: "none",
-                      fontSize: 14,
-                      fontWeight: 400
+                      fontSize: 15,
+                      fontWeight: 500
                     }}
+                    aria-label="Quantity"
                   />
                   
                   <button 
                     onClick={() => setQty(l.product.id, l.quantity + 1)}
                     style={{
-                      width: 40,
-                      height: 40,
+                      width: 44,
+                      height: 44,
+                      minWidth: 44,
+                      minHeight: 44,
                       padding: 0,
                       border: "1px solid #e8e8e8",
                       background: "#fff",
                       cursor: "pointer",
-                      fontSize: 16,
+                      fontSize: 18,
                       color: "#666",
-                      transition: "all 0.2s ease"
+                      transition: "all 0.2s ease",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.background = "#fafafa"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "#fff"}
+                    aria-label="Increase quantity"
                   >
                     +
                   </button>

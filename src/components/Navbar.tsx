@@ -45,6 +45,21 @@ export default function Navbar() {
     const term = q.trim().toLowerCase();
     if (!term) return;
 
+    // First try product search
+    const { data: productMatch } = await supabase
+      .from("products")
+      .select("id, subcategory_id, category_id")
+      .or(`name.ilike.%${term}%,id.eq.${isNaN(Number(term)) ? -1 : Number(term)}`)
+      .limit(10);
+
+    if (productMatch && productMatch.length > 0) {
+      // Navigate to products page with search term
+      navigate(`/products?search=${encodeURIComponent(term)}`);
+      setQ("");
+      return;
+    }
+
+    // Then try subcategory
     const { data: subMatch } = await supabase
       .from("subcategories")
       .select("id,name")
@@ -57,6 +72,7 @@ export default function Navbar() {
       return;
     }
 
+    // Then try category
     const { data: catMatch } = await supabase
       .from("categories")
       .select("id,name")
@@ -69,7 +85,9 @@ export default function Navbar() {
       return;
     }
 
-    alert("No matching category or subcategory found.");
+    // Navigate to products page with search term anyway
+    navigate(`/products?search=${encodeURIComponent(term)}`);
+    setQ("");
   };
 
   return (
@@ -130,7 +148,8 @@ export default function Navbar() {
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search categories, collections..."
+              placeholder="Search products, categories, collections..."
+              aria-label="Search products, categories, and collections"
               style={{ 
                 flex: 1,
                 border: "none",
@@ -144,7 +163,7 @@ export default function Navbar() {
         </form>
 
         {/* Right Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
           <NavLink 
             to="/cart" 
             style={{ 
@@ -157,8 +176,9 @@ export default function Navbar() {
               fontWeight: 500,
               transition: "color 0.2s"
             }}
+            aria-label="Shopping cart"
           >
-            <ShoppingBag size={20} />
+            <ShoppingBag size={20} aria-hidden="true" />
             <span>Cart</span>
           </NavLink>
 
@@ -173,8 +193,9 @@ export default function Navbar() {
               fontSize: 14,
               fontWeight: 500
             }}
+            aria-label="My orders"
           >
-            <ClipboardList size={20} />
+            <ClipboardList size={20} aria-hidden="true" />
             <span>Orders</span>
           </NavLink>
 
@@ -189,9 +210,48 @@ export default function Navbar() {
               fontSize: 14,
               fontWeight: 500
             }}
+            aria-label="My profile"
           >
-            <User size={20} />
+            <User size={20} aria-hidden="true" />
             <span>Profile</span>
+          </NavLink>
+          
+          <NavLink 
+            to="/wishlist" 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              textDecoration: "none",
+              color: "#555",
+              fontSize: 14,
+              fontWeight: 500
+            }}
+            aria-label="My wishlist"
+          >
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+            <span>Wishlist</span>
+          </NavLink>
+          
+          <NavLink 
+            to="/contact" 
+            style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 6,
+              textDecoration: "none",
+              color: "#555",
+              fontSize: 14,
+              fontWeight: 500
+            }}
+            aria-label="Contact us"
+          >
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Contact</span>
           </NavLink>
 
           {userEmail ? (
@@ -211,9 +271,10 @@ export default function Navbar() {
                 gap: 6,
                 transition: "background 0.2s"
               }}
+              aria-label="Logout"
             >
-              <LogOut size={16} />
-              Logout
+              <LogOut size={16} aria-hidden="true" />
+              <span>Logout</span>
             </button>
           ) : (
             <NavLink
@@ -238,14 +299,32 @@ export default function Navbar() {
       <div style={{ 
         background: "#faf9f7", 
         borderTop: "1px solid #f0ece4",
-        padding: "0 24px"
+        padding: "0 24px",
+        overflowX: "auto"
       }}>
         <div style={{ 
           maxWidth: 1200, 
           margin: "0 auto",
           display: "flex",
-          gap: 8
+          gap: 8,
+          minWidth: "max-content"
         }}>
+          <NavLink
+            to="/"
+            style={{
+              padding: "12px 18px",
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#555",
+              textDecoration: "none",
+              letterSpacing: 0.5,
+              transition: "color 0.2s",
+              borderBottom: "2px solid transparent"
+            }}
+          >
+            Home
+          </NavLink>
+
           <NavLink
             to="/products"
             style={{
