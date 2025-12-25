@@ -176,10 +176,15 @@ export async function moveProductItem(
 
   if (movementErr) return { error: movementErr };
 
-  // 2) Update current location on the item
+  // 2) Update current location on the item and store note
+  const updateData: any = { current_location_id: to_loc };
+  if (remarks && remarks.trim()) {
+    updateData.location_history_note = remarks.trim();
+  }
+  
   const { error: updateErr } = await supabase
     .from("product_items")
-    .update({ current_location_id: to_loc })
+    .update(updateData)
     .eq("id", item_id);
 
   return { error: updateErr };
