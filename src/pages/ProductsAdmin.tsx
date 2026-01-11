@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { createWorker } from "tesseract.js";
+import { showErrorToast, showSuccessToast, showInfoToast } from "../utils/toast";
 
 function downloadCsv(filename: string, rows: Array<Array<string | number | null>>) {
   const csv = rows
@@ -110,8 +111,7 @@ export default function ProductsAdmin() {
         setLocationId(mum?.id ?? locs[0]?.id ?? "");
       }
     } catch (err) {
-      console.error("loadAll error", err);
-      alert("Failed to load products or meta.");
+      showErrorToast("Failed to load products or meta.");
     } finally {
       setLoading(false);
     }
@@ -119,7 +119,7 @@ export default function ProductsAdmin() {
 
   async function addCategory() {
     const nm = newCat.trim();
-    if (!nm) return alert("Enter category name");
+    if (!nm) return showErrorToast("Enter category name");
     setLoading(true);
     try {
       const { error } = await supabase.from("categories").insert({ name: nm });
@@ -127,9 +127,9 @@ export default function ProductsAdmin() {
       setNewCat("");
       setAddingCat(false);
       await loadAll();
-      alert("Category added");
+      showSuccessToast("Category added");
     } catch (err: any) {
-      alert("Failed to create category: " + (err.message || err));
+      showErrorToast("Failed to create category: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -137,8 +137,8 @@ export default function ProductsAdmin() {
 
   async function addSubcategory() {
     const nm = newSub.trim();
-    if (!nm) return alert("Enter subcategory name");
-    if (!categoryId) return alert("Select category first");
+    if (!nm) return showErrorToast("Enter subcategory name");
+    if (!categoryId) return showErrorToast("Select category first");
     setLoading(true);
     try {
       const { error } = await supabase.from("subcategories").insert({
@@ -149,21 +149,21 @@ export default function ProductsAdmin() {
       setNewSub("");
       setAddingSub(false);
       await loadAll();
-      alert("Subcategory added");
+      showSuccessToast("Subcategory added");
     } catch (err: any) {
-      alert("Failed to create subcategory: " + (err.message || err));
+      showErrorToast("Failed to create subcategory: " + (err.message || err));
     } finally {
       setLoading(false);
     }
   }
 
   async function addProduct() {
-    if (!weight || isNaN(Number(weight))) return alert("Enter valid weight (grams)");
-    if (!categoryId) return alert("Select category");
-    if (!subcategoryId) return alert("Select subcategory");
-    if (!imageFile) return alert("Please choose an image file");
-    if (isNaN(Number(stockQty)) || Number(stockQty) <= 0) return alert("Enter stock quantity >= 1");
-    if (!locationId) return alert("Select location");
+    if (!weight || isNaN(Number(weight))) return showErrorToast("Enter valid weight (grams)");
+    if (!categoryId) return showErrorToast("Select category");
+    if (!subcategoryId) return showErrorToast("Select subcategory");
+    if (!imageFile) return showErrorToast("Please choose an image file");
+    if (isNaN(Number(stockQty)) || Number(stockQty) <= 0) return showErrorToast("Enter stock quantity >= 1");
+    if (!locationId) return showErrorToast("Select location");
 
     const stockN = Math.floor(Number(stockQty));
     if (stockN > 200) {
@@ -217,7 +217,7 @@ export default function ProductsAdmin() {
       await supabase.from("products").update({ stock_qty: stockN }).eq("id", createdProduct.id);
       if (itemsErr) throw itemsErr;
 
-      alert(`Product and ${itemsData?.length ?? stockN} item(s) added successfully.`);
+      showSuccessToast(`Product and ${itemsData?.length ?? stockN} item(s) added successfully.`);
       setWeight("");
       setStockQty("1");
       setCategoryId("");
@@ -227,7 +227,7 @@ export default function ProductsAdmin() {
       setShowOnWebsite(true);
       await loadAll();
     } catch (err: any) {
-      alert("Failed to add product: " + (err.message || JSON.stringify(err)));
+      showErrorToast("Failed to add product: " + (err.message || JSON.stringify(err)));
     } finally {
       setLoading(false);
     }
@@ -239,10 +239,10 @@ export default function ProductsAdmin() {
     try {
       await supabase.from("product_items").delete().eq("product_id", p.id);
       await supabase.from("products").delete().eq("id", p.id);
-      alert("Deleted.");
+      showSuccessToast("Deleted.");
       await loadAll();
     } catch (err: any) {
-      alert("Failed to delete product: " + (err.message || err));
+      showErrorToast("Failed to delete product: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -348,12 +348,12 @@ export default function ProductsAdmin() {
   // Process bulk images with OCR
   const processBulkImages = async () => {
     if (bulkImages.length === 0) {
-      alert("Please select images first.");
+      showErrorToast("Please select images first.");
       return;
     }
 
     if (!bulkCategoryId || !bulkSubcategoryId || !bulkLocationId) {
-      alert("Please select Category, Subcategory, and Location first.");
+      showErrorToast("Please select Category, Subcategory, and Location first.");
       return;
     }
 
@@ -385,14 +385,14 @@ export default function ProductsAdmin() {
   // Add all bulk products
   const addBulkProducts = async () => {
     if (bulkProducts.length === 0) {
-      alert("No products to add.");
+      showErrorToast("No products to add.");
       return;
     }
 
     // Validate all weights
     const invalid = bulkProducts.filter(p => !p.weight || isNaN(Number(p.weight)));
     if (invalid.length > 0) {
-      alert(`Please enter valid weights for all products. ${invalid.length} product(s) have invalid weights.`);
+      showErrorToast(`Please enter valid weights for all products. ${invalid.length} product(s) have invalid weights.`);
       return;
     }
 
@@ -450,12 +450,11 @@ export default function ProductsAdmin() {
           
           successCount++;
         } catch (err: any) {
-          console.error("Error adding product:", err);
           errorCount++;
         }
       }
 
-      alert(`Bulk add complete! ${successCount} products added successfully.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`);
+      showSuccessToast(`Bulk add complete! ${successCount} products added successfully.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`);
       
       // Reset bulk add
       setBulkImages([]);
@@ -466,7 +465,7 @@ export default function ProductsAdmin() {
       setBulkLocationNote("");
       await loadAll();
     } catch (err: any) {
-      alert("Bulk add error: " + (err.message || err));
+      showErrorToast("Bulk add error: " + (err.message || err));
     } finally {
       setLoading(false);
     }
@@ -474,12 +473,12 @@ export default function ProductsAdmin() {
 
   const shareSelectedImages = async () => {
     if (selectedProducts.size === 0) {
-      alert("Please select at least one product to share.");
+      showErrorToast("Please select at least one product to share.");
       return;
     }
 
     if (selectedProducts.size > 20) {
-      alert("Please select maximum 20 products.");
+      showErrorToast("Please select maximum 20 products.");
       return;
     }
 
@@ -489,7 +488,7 @@ export default function ProductsAdmin() {
       const selected = filtered.filter(p => selectedProducts.has(p.id) && p.image_url);
       
       if (selected.length === 0) {
-        alert("Selected products don't have images.");
+        showErrorToast("Selected products don't have images.");
         setSharing(false);
         return;
       }
@@ -504,12 +503,12 @@ export default function ProductsAdmin() {
           const file = new File([blob], fileName, { type: blob.type });
           files.push(file);
         } catch (error) {
-          console.error(`Failed to fetch image for product ${product.id}:`, error);
+          // Silently handle individual image fetch errors
         }
       }
 
       if (files.length === 0) {
-        alert("Failed to load images. Please try again.");
+        showErrorToast("Failed to load images. Please try again.");
         setSharing(false);
         return;
       }
@@ -528,12 +527,11 @@ export default function ProductsAdmin() {
         });
         setSelectedProducts(new Set());
       } else {
-        alert(`Web Share API not available. Selected ${files.length} products. Please use a mobile browser with WhatsApp installed for best experience.`);
+        showInfoToast(`Web Share API not available. Selected ${files.length} products. Please use a mobile browser with WhatsApp installed for best experience.`);
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
-        console.error("Share error:", error);
-        alert("Failed to share images. Please try again.");
+        showErrorToast("Failed to share images. Please try again.");
       }
     } finally {
       setSharing(false);

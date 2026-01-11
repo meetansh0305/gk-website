@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
 type Product = {
   id: number;
@@ -14,7 +15,7 @@ type Line = {
 
 type CartContextShape = {
   lines: Line[];
-  add: (product: Product, qty?: number) => void;
+  add: (product: Product, qty?: number) => Promise<void>;
   setQty: (productId: number, qty: number) => void;
   remove: (productId: number) => void;
   clear: () => void;
@@ -89,7 +90,53 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   /* ============================================================
                     ADD TO CART + TOAST
   ============================================================ */
-  const add = (product: Product, qty = 1) => {
+  const add = async (product: Product, qty = 1) => {
+    // Check authentication first (using localStorage workaround)
+    const projectRef = import.meta.env.VITE_SUPABASE_URL?.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+    let isAuthenticated = false;
+    
+    if (projectRef) {
+      const storageKey = `sb-${projectRef}-auth-token`;
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const sessionData = JSON.parse(stored);
+          if (sessionData.user && sessionData.access_token) {
+            isAuthenticated = true;
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }
+    
+    // If not authenticated via localStorage, try Supabase with timeout
+    if (!isAuthenticated) {
+      try {
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("getSession timeout")), 2000);
+        });
+        
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        if (session?.user) {
+          isAuthenticated = true;
+        }
+      } catch (e) {
+        // Supabase hanging or no session
+      }
+    }
+    
+    if (!isAuthenticated) {
+      // Show message and redirect to login
+      const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+      const shouldLogin = confirm("Please login to add items to cart. Do you want to login now?");
+      if (shouldLogin) {
+        window.location.href = `/auth?returnTo=${returnTo}`;
+      }
+      return;
+    }
+
     setLines((prev) => {
       const idx = prev.findIndex((l) => l.product.id === product.id);
 

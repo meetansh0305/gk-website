@@ -73,18 +73,20 @@ export async function handleAsync<T>(
   }
 }
 
+import { showToast } from "./toast";
+
 /**
  * Show user-friendly error alert
  */
 export function showError(error: string | ErrorResult, title = "Error") {
   const message = typeof error === "string" ? error : error.error;
-  alert(`${title}\n\n${message}`);
+  showToast(`${title}: ${message}`, "error");
 }
 
 /**
  * Show success message
  */
 export function showSuccess(message: string, title = "Success") {
-  alert(`${title}\n\n${message}`);
+  showToast(`${title}: ${message}`, "success");
 }
 

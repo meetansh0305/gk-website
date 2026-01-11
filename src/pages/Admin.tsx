@@ -65,7 +65,8 @@ function downloadCsv(filename: string, rows: Array<Array<string | number | null>
 /* ---------------------- Component ---------------------- */
 export default function Admin() {
   const [ok, setOk] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<"dashboard" | "orders" | "customers" | "products" | "reorder" | "stock" | "raw_gold" | "sold" | "admin_users" | "contact_messages">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "orders" | "customers" | "products" | "reorder" | "stock" | "raw_gold" | "sold" | "admin_users">("dashboard");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -88,25 +89,47 @@ export default function Admin() {
   if (ok === null) return null;
   if (!ok) return <div className="container"><div className="card" style={{ textAlign: "center", padding: 40 }}>No admin access.</div></div>;
 
+  const adminTabs = [
+    { key: "dashboard", label: "Dashboard" },
+    { key: "orders", label: "Orders" },
+    { key: "customers", label: "Customers" },
+    { key: "sold", label: "Sold Items" },
+    { key: "products", label: "Products" },
+    { key: "reorder", label: "Reorder Images" },
+    { key: "stock", label: "Stock" },
+    { key: "raw_gold", label: "Raw Gold" },
+    { key: "admin_users", label: "Admin Users" },
+  ];
+
   return (
     <div className="container">
-      <h2 className="section-title" style={{ color: "var(--accent-dark)", borderBottom: "2px solid var(--accent)", paddingBottom: 12 }}>
-        Admin Panel
-      </h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 className="section-title" style={{ color: "var(--accent-dark)", borderBottom: "2px solid var(--accent)", paddingBottom: 12, margin: 0 }}>
+          Admin Panel
+        </h2>
+        
+        {/* Mobile Hamburger Menu Button */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="mobile-only admin-hamburger"
+          style={{
+            background: "var(--accent)",
+            border: "none",
+            color: "#fff",
+            padding: "10px 14px",
+            borderRadius: 6,
+            cursor: "pointer",
+            fontSize: 18,
+            zIndex: 100,
+          }}
+        >
+          ☰
+        </button>
+      </div>
 
-      <div className="tabs" style={{ marginBottom: 16, flexWrap: "wrap" }}>
-        {[
-          { key: "dashboard", label: "Dashboard" },
-          { key: "orders", label: "Orders" },
-          { key: "customers", label: "Customers" },
-          { key: "sold", label: "Sold Items" },
-          { key: "products", label: "Products" },
-          { key: "reorder", label: "Reorder Images" },
-          { key: "stock", label: "Stock" },
-          { key: "raw_gold", label: "Raw Gold" },
-          { key: "admin_users", label: "Admin Users" },
-          { key: "contact_messages", label: "Contact Messages" },
-        ].map((t) => (
+      {/* Desktop Tabs */}
+      <div className="tabs desktop-only" style={{ marginBottom: 16, flexWrap: "wrap" }}>
+        {adminTabs.map((t) => (
           <button
             key={t.key}
             className={`tab ${tab === t.key ? "active" : ""}`}
@@ -116,6 +139,72 @@ export default function Admin() {
           </button>
         ))}
       </div>
+
+      {/* Mobile Menu Drawer */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-only admin-menu-overlay"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 999,
+          }}
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: "280px",
+              background: "#fff",
+              boxShadow: "2px 0 10px rgba(0,0,0,0.1)",
+              padding: 20,
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <h3 style={{ margin: 0, color: "var(--accent-dark)" }}>Admin Menu</h3>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: 24,
+                  cursor: "pointer",
+                  padding: 4,
+                }}
+              >
+                ×
+              </button>
+            </div>
+            {adminTabs.map((t) => (
+              <button
+                key={t.key}
+                className={`tab ${tab === t.key ? "active" : ""}`}
+                onClick={() => {
+                  setTab(t.key as any);
+                  setMobileMenuOpen(false);
+                }}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  marginBottom: 8,
+                  padding: "12px 16px",
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {tab === "dashboard" && <AdminDashboard />}
       {tab === "orders" && <OrdersTable />}

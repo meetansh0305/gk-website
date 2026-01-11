@@ -82,12 +82,30 @@ export default function Footer() {
               Send us a Message
             </NavLink>
             
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <a 
+              href="https://www.gurukrupajewellers.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 12,
+                textDecoration: "none",
+                color: "#555",
+                transition: "color 0.2s"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "#a67c52";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "#555";
+              }}
+            >
               <Globe size={18} style={{ color: "#a67c52" }} />
-              <span style={{ fontSize: 14, color: "#555" }}>
-                www.gurkrupajewellers.com
+              <span style={{ fontSize: 14 }}>
+                www.gurukrupajewellers.com
               </span>
-            </div>
+            </a>
           </div>
         </div>
 
@@ -101,7 +119,7 @@ export default function Footer() {
             color: "#a67c52",
             textTransform: "uppercase"
           }}>
-            Visit Our Store
+            Visit Our Office
           </h3>
           <div style={{ 
             borderRadius: 16, 
@@ -125,7 +143,7 @@ export default function Footer() {
                 position: "relative",
                 overflow: "hidden"
               }}
-              aria-label="View store location on Google Maps"
+              aria-label="View office location on Google Maps"
             >
               <div style={{
                 position: "absolute",
@@ -139,7 +157,7 @@ export default function Footer() {
               }}>
                 <MapPin size={40} style={{ color: "#a67c52", marginBottom: 16 }} />
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8, color: "#a67c52" }}>
-                  View Store Location
+                  View Office Location
                 </div>
                 <div style={{ fontSize: 13, color: "#777", lineHeight: 1.6 }}>
                   #51, 2nd Floor, Krishna Niwas<br />
@@ -161,7 +179,7 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Store Hours */}
+        {/* Office Hours */}
         <div>
           <h3 style={{ 
             fontSize: 16, 
@@ -171,7 +189,7 @@ export default function Footer() {
             color: "#a67c52",
             textTransform: "uppercase"
           }}>
-            Store Hours
+            Office Hours
           </h3>
           
           <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>

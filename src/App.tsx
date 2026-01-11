@@ -1,6 +1,9 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, useParams, useNavigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import MobileBottomNav from "./components/MobileBottomNav";
+import WhatsAppButton from "./components/WhatsAppButton";
 
 import Home from "./pages/Home";
 import LiveStock from "./pages/LiveStock";
@@ -15,9 +18,50 @@ import Contact from "./pages/Contact";
 import { WishlistProvider } from "./state/WishlistContext";
 
 // NEW
-import CategoryLanding from "./pages/CategoryLanding";
-import SubcategoryPage from "./pages/SubcategoryPage";
 import AllProducts from "./pages/AllProducts";
+import { supabase } from "./lib/supabaseClient";
+
+// Component to redirect category to products page with filter
+function CategoryRedirect() {
+  const { categoryId } = useParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (categoryId) {
+      navigate(`/products?category=${categoryId}`, { replace: true });
+    } else {
+      navigate("/products", { replace: true });
+    }
+  }, [categoryId, navigate]);
+
+  return <div>Redirecting...</div>;
+}
+
+// Component to redirect subcategory to products page with filters
+function SubcategoryRedirect() {
+  const { subcategoryId } = useParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    (async () => {
+      if (subcategoryId) {
+        const { data: sub } = await supabase
+          .from("subcategories")
+          .select("category_id")
+          .eq("id", Number(subcategoryId))
+          .single();
+        
+        if (sub && (sub as any).category_id) {
+          navigate(`/products?category=${(sub as any).category_id}&subcategory=${subcategoryId}`, { replace: true });
+        } else {
+          navigate("/products", { replace: true });
+        }
+      }
+    })();
+  }, [subcategoryId, navigate]);
+
+  return <div>Redirecting...</div>;
+}
 
 // ✅ IMPORT CSS
 import "./index.css";
@@ -39,11 +83,11 @@ export default function App() {
               {/* Categories */}
               <Route path="/categories" element={<Categories />} />
 
-              {/* Category landing */}
-              <Route path="/category/:categoryId" element={<CategoryLanding />} />
+              {/* Redirect category routes to products page with filter */}
+              <Route path="/category/:categoryId" element={<CategoryRedirect />} />
 
-              {/* Subcategory landing */}
-              <Route path="/subcategory/:subcategoryId" element={<SubcategoryPage />} />
+              {/* Redirect subcategory routes to products page with filters */}
+              <Route path="/subcategory/:subcategoryId" element={<SubcategoryRedirect />} />
 
               {/* All products */}
               <Route path="/products" element={<AllProducts />} />
@@ -61,7 +105,9 @@ export default function App() {
               <Route path="*" element={<Home />} />
             </Routes>
           </main>
+          <MobileBottomNav />
           <Footer />
+          <WhatsAppButton />
         </div>
       </WishlistProvider>
     </BrowserRouter>

@@ -7,6 +7,8 @@ type Product = {
   weight?: number | null;
   name?: string | null;
   is_live_stock?: boolean;
+  category_name?: string | null;
+  subcategory_name?: string | null;
 };
 
 type WishlistContextType = {
@@ -25,6 +27,15 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadWishlist();
+
+    // Listen for auth state changes to reload wishlist
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      loadWishlist();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadWishlist = async () => {
@@ -43,9 +54,20 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         if (productIds.length > 0) {
           const { data: products } = await supabase
             .from("products")
-            .select("id, image_url, weight, name, is_live_stock")
+            .select(`
+              id, image_url, weight, name, is_live_stock,
+              category:category_id (name),
+              subcategory:subcategory_id (name)
+            `)
             .in("id", productIds);
-          setWishlist((products as Product[]) ?? []);
+          
+          const productsWithNames = (products as any[]).map(prod => ({
+            ...prod,
+            category_name: prod.category?.name || null,
+            subcategory_name: prod.subcategory?.name || null,
+          }));
+          
+          setWishlist((productsWithNames as Product[]) ?? []);
         }
       }
     } catch (e) {

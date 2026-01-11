@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import ProductCard from "../components/ProductCard";
 import { useCart } from "../state/CartContext";
+import { showErrorToast, showInfoToast } from "../utils/toast";
 
 type Subcategory = { id: number; name: string; category_id: number };
 type Product = {
@@ -111,12 +112,12 @@ export default function SubcategoryPage() {
 
   const shareSelectedImages = async () => {
     if (selectedProducts.size === 0) {
-      alert("Please select at least one product to share.");
+      showErrorToast("Please select at least one product to share.");
       return;
     }
 
     if (selectedProducts.size > 20) {
-      alert("Please select maximum 20 products.");
+      showErrorToast("Please select maximum 20 products.");
       return;
     }
 
@@ -126,7 +127,7 @@ export default function SubcategoryPage() {
       const selected = filtered.filter(p => selectedProducts.has(p.id) && p.image_url);
       
       if (selected.length === 0) {
-        alert("Selected products don't have images.");
+        showErrorToast("Selected products don't have images.");
         setSharing(false);
         return;
       }
@@ -141,12 +142,12 @@ export default function SubcategoryPage() {
           const file = new File([blob], fileName, { type: blob.type });
           files.push(file);
         } catch (error) {
-          console.error(`Failed to fetch image for product ${product.id}:`, error);
+          // Silently handle individual image fetch errors
         }
       }
 
       if (files.length === 0) {
-        alert("Failed to load images. Please try again.");
+        showErrorToast("Failed to load images. Please try again.");
         setSharing(false);
         return;
       }
@@ -165,12 +166,11 @@ export default function SubcategoryPage() {
         });
         setSelectedProducts(new Set());
       } else {
-        alert(`Web Share API not available. Selected ${files.length} products. Please use a mobile browser with WhatsApp installed for best experience.`);
+        showInfoToast(`Web Share API not available. Selected ${files.length} products. Please use a mobile browser with WhatsApp installed for best experience.`);
       }
     } catch (error: any) {
       if (error.name !== 'AbortError') {
-        console.error("Share error:", error);
-        alert("Failed to share images. Please try again.");
+        showErrorToast("Failed to share images. Please try again.");
       }
     } finally {
       setSharing(false);
